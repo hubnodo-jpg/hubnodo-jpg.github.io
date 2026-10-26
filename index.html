@@ -19,7 +19,9 @@
   :root { --night: #243237; --champ: #c9ad8b; --paper: #fafaf7 }
   html, body { margin: 0; height: 100%; background: var(--night); overflow: hidden }
   /* l'app occupa tutto lo schermo: i margini per l'ora e per la barretta in basso li gestisce lei (altrimenti contano doppio su iPhone) */
-  #app { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; background: var(--night) }
+  /* contenitore fissato ai quattro bordi: su iPhone «height: 100%» si ferma sopra la barretta, i bordi no */
+  #frame { position: fixed; top: 0; right: 0; bottom: 0; left: 0; background: var(--night) }
+  #app { display: block; width: 100%; height: 100%; border: 0; background: var(--night) }
   .splash { position: fixed; inset: 0; z-index: 2; display: grid; place-items: center; background: var(--night); color: var(--paper);
     font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; transition: opacity .35s }
   .splash.via { opacity: 0; pointer-events: none }
@@ -42,7 +44,7 @@
     <a id="direct" href="#" hidden>Non si apre? Tocca qui per aprire NODO</a>
   </div>
 </div>
-<iframe id="app" title="NODO" allow="clipboard-write"></iframe>
+<div id="frame"><iframe id="app" title="NODO" allow="clipboard-write"></iframe></div>
 <script>
   // Indirizzo della web app Google Apps Script (Esegui il deployment → Gestisci deployment → URL)
   var APP_URL = "https://script.google.com/macros/s/AKfycbwGJoPvjwTxiBBIfpVvPkSs7ZDxjvnU_xn7yumFp8ALd9W0vKYquYclCSdqENmrkp22/exec";
