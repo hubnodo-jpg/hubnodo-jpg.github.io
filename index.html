@@ -123,6 +123,8 @@
     sorgente = e.source; origine = e.origin;
     if (e.data.nodo === "notifiche") controlla(false);
     if (e.data.nodo === "invito") controlla(true);
+    // colore del bordo inferiore di NODO: lo diamo alla fascia che iOS lascia sotto l'app aperta dall'icona
+    if (e.data.nodo === "fondo" && /^rgba?\([\d\s.,%]+\)$/.test(String(e.data.colore))) document.documentElement.style.backgroundColor = e.data.colore;
     // nuova versione di NODO pubblicata: ricarichiamo l'app dentro la pagina, con la schermata d'apertura
     if (e.data.nodo === "ricarica") {
       splash.classList.remove("via");
