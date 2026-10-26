@@ -35,6 +35,16 @@
   .splash small { letter-spacing: .28em; text-transform: uppercase; font-size: 11px; color: #e6e4df }
   .splash a { color: var(--champ); font-size: 14px }
   @media (prefers-reduced-motion: reduce) { .splash { transition: none } }
+  /* invito alle notifiche: lo mostra questa pagina perché su iPhone il permesso si chiede solo da un tocco qui */
+  .invito { position: fixed; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); z-index: 3; max-width: 460px; margin: 0 auto;
+    background: var(--paper); color: #1d282c; border-radius: 16px; padding: 16px; box-shadow: 0 10px 40px rgba(10, 16, 18, .35);
+    font: 15px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; display: grid; gap: 12px }
+  .invito[hidden] { display: none }
+  .invito b { font-size: 17px }
+  .invito p { margin: 0; color: #4a5458 }
+  .invito .bt { display: grid; grid-template-columns: 1fr 1fr; gap: 8px }
+  .invito button { min-height: 46px; border-radius: 10px; border: 1px solid #c9cfd0; background: #fff; color: #1d282c; font: 600 16px system-ui, -apple-system, sans-serif; cursor: pointer }
+  .invito button.si { background: var(--night); border-color: var(--night); color: var(--paper) }
 </style>
 </head>
 <body>
@@ -48,6 +58,11 @@
   </div>
 </div>
 <div id="frame"><iframe id="app" title="NODO" allow="clipboard-write"></iframe></div>
+<div class="invito" id="invito" role="dialog" aria-labelledby="invTit" hidden>
+  <b id="invTit">Notifiche di NODO</b>
+  <p>Ti avvisiamo quando c'è un lavoro nuovo o cambiato, una richiesta da confermare o un problema segnalato.</p>
+  <div class="bt"><button type="button" id="invNo">Non ora</button><button type="button" class="si" id="invSi">Attiva</button></div>
+</div>
 <script>
   // Indirizzo della web app Google Apps Script (Esegui il deployment → Gestisci deployment → URL)
   var APP_URL = "https://script.google.com/macros/s/AKfycbwGJoPvjwTxiBBIfpVvPkSs7ZDxjvnU_xn7yumFp8ALd9W0vKYquYclCSdqENmrkp22/exec";
@@ -59,6 +74,66 @@
   app.src = APP_URL + (window.navigator.standalone ? "?da=home" : "");
   // Se Google non permette di mostrare l'app qui dentro, resta il collegamento diretto
   setTimeout(function () { direct.hidden = false; }, 8000);
+</script>
+<script type="module">
+  // Notifiche sul telefono con Firebase Cloud Messaging. Valori pubblici del progetto Firebase «NODO»
+  // (Impostazioni progetto › Generali › La tua app web) e chiave dei certificati push web (Cloud Messaging).
+  const FIREBASE = { apiKey: "", authDomain: "", projectId: "", storageBucket: "", messagingSenderId: "", appId: "" };
+  const VAPID = "";
+  const SDK = "https://www.gstatic.com/firebasejs/10.12.2/";
+  const invito = document.getElementById("invito");
+  let sorgente = null, origine = "", base = null;
+  // l'app NODO (dentro la cornice Google) chiede lo stato delle notifiche; rispondiamo solo a lei
+  const rispondi = (m) => { try { if (sorgente) sorgente.postMessage(m, origine); } catch (e) {} };
+  const supportato = () => "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+  const dispositivo = () => (/iPhone|iPad/.test(navigator.userAgent) ? "iPhone" : /Android/.test(navigator.userAgent) ? "Android" : "Computer")
+    + (navigator.standalone || matchMedia("(display-mode: standalone)").matches ? " · icona" : " · browser");
+  function prepara() {
+    base = base || (async () => {
+      const reg = await navigator.serviceWorker.register("firebase-messaging-sw.js");
+      await navigator.serviceWorker.ready;
+      const [fa, fm] = await Promise.all([import(SDK + "firebase-app.js"), import(SDK + "firebase-messaging.js")]);
+      const msg = fm.getMessaging(fa.initializeApp(FIREBASE));
+      // con NODO aperto l'avviso arriva qui e non al service worker: lo mostriamo lo stesso
+      fm.onMessage(msg, (p) => { const n = p.notification || {}; reg.showNotification(n.title || "NODO", { body: n.body || "", icon: "icons/icon-192.png" }); });
+      return { reg, msg, getToken: fm.getToken };
+    })();
+    return base;
+  }
+  async function invia() {
+    try {
+      const b = await prepara();
+      const t = await b.getToken(b.msg, { vapidKey: VAPID, serviceWorkerRegistration: b.reg });
+      rispondi(t ? { nodo: "token", token: t, disp: dispositivo() } : { nodo: "stato", stato: "errore" });
+    } catch (e) { base = null; rispondi({ nodo: "stato", stato: "errore" }); }
+  }
+  function controlla(chiesto) {
+    if (!FIREBASE.apiKey || !VAPID) return rispondi({ nodo: "stato", stato: "spente" });
+    if (!supportato()) return rispondi({ nodo: "stato", stato: "non-supportato" });
+    if (Notification.permission === "denied") return rispondi({ nodo: "stato", stato: "negato" });
+    if (Notification.permission === "granted") return invia();
+    rispondi({ nodo: "stato", stato: "da-attivare" });
+    prepara().catch(() => { base = null; });
+    let no = 0;
+    try { no = Number(localStorage.getItem("nodo-notifiche-no") || 0); } catch (e) {}
+    if (chiesto || Date.now() - no > 3 * 864e5) invito.hidden = false;
+  }
+  window.addEventListener("message", (e) => {
+    if (!/^https:\/\/[a-z0-9-]+\.googleusercontent\.com$/.test(e.origin) || !e.data || typeof e.data !== "object") return;
+    sorgente = e.source; origine = e.origin;
+    if (e.data.nodo === "notifiche") controlla(false);
+    if (e.data.nodo === "invito") controlla(true);
+  });
+  document.getElementById("invSi").addEventListener("click", async () => {
+    invito.hidden = true;
+    // il permesso va chiesto subito, dentro il tocco: iPhone non accetta richieste fatte dopo
+    const p = await Notification.requestPermission();
+    if (p === "granted") invia(); else rispondi({ nodo: "stato", stato: p === "denied" ? "negato" : "da-attivare" });
+  });
+  document.getElementById("invNo").addEventListener("click", () => {
+    invito.hidden = true;
+    try { localStorage.setItem("nodo-notifiche-no", String(Date.now())); } catch (e) {}
+  });
 </script>
 <noscript><p style="color:#fafaf7; text-align:center"><a style="color:#c9ad8b" href="https://script.google.com/macros/s/AKfycbwGJoPvjwTxiBBIfpVvPkSs7ZDxjvnU_xn7yumFp8ALd9W0vKYquYclCSdqENmrkp22/exec">Apri NODO</a></p></noscript>
 </body>
