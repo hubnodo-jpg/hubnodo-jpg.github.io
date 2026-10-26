@@ -50,6 +50,19 @@
   var APP_URL = "https://script.google.com/macros/s/AKfycbwGJoPvjwTxiBBIfpVvPkSs7ZDxjvnU_xn7yumFp8ALd9W0vKYquYclCSdqENmrkp22/exec";
   var app = document.getElementById("app"), splash = document.getElementById("splash"), direct = document.getElementById("direct");
   direct.href = APP_URL;
+  // iPhone, app aperta dall'icona: iOS dichiara uno schermo più basso di quello reale
+  // (manca l'altezza della zona dell'ora) e sotto resta una fascia vuota. Usiamo l'altezza vera dello schermo.
+  var frame = document.getElementById("frame");
+  function adatta() {
+    if (!window.navigator.standalone) return;
+    var orizz = window.matchMedia("(orientation: landscape)").matches;
+    var piena = orizz ? Math.min(screen.width, screen.height) : Math.max(screen.width, screen.height);
+    if (piena > window.innerHeight) { frame.style.bottom = "auto"; frame.style.height = piena + "px"; }
+    else { frame.style.bottom = ""; frame.style.height = ""; }
+  }
+  adatta();
+  window.addEventListener("resize", adatta);
+  window.addEventListener("orientationchange", function () { setTimeout(adatta, 300); });
   // l'app manda "nodo-pronto" quando è caricata; solo allora togliamo la schermata d'apertura
   window.addEventListener("message", function (e) { if (e.data === "nodo-pronto") splash.classList.add("via"); });
   app.src = APP_URL;
