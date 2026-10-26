@@ -123,6 +123,11 @@
     sorgente = e.source; origine = e.origin;
     if (e.data.nodo === "notifiche") controlla(false);
     if (e.data.nodo === "invito") controlla(true);
+    // nuova versione di NODO pubblicata: ricarichiamo l'app dentro la pagina, con la schermata d'apertura
+    if (e.data.nodo === "ricarica") {
+      splash.classList.remove("via");
+      app.src = APP_URL + (window.navigator.standalone ? "?da=home&" : "?") + "r=" + Date.now();
+    }
   });
   document.getElementById("invSi").addEventListener("click", async () => {
     invito.hidden = true;
