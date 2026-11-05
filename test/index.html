@@ -137,6 +137,7 @@
 </script>
 <noscript><p style="color:#fafaf7; text-align:center"><a style="color:#c9ad8b" href="https://script.google.com/macros/s/AKfycbxM-9nYEvalIwLsQAkItjPQAcn0SfAD2e8peb0YLV21wC4Ny5aTk8G_hTh5WCrIdeKF/exec">Apri NODO</a></p></noscript>
 <!-- ===== Ascolto per «Parla e compila» =====
+  r6 — voce Google (Chirp 3 HD) che arriva da NODO in mp3, sfera che segue il volume della voce.
   r5 — Lumi, l'assistente di NODO. NODO gira dentro il riquadro di Google, che non può usare il microfono: questa pagina
   d'ingresso sì. NODO ci dice dove tiene il posto per il pulsante Lumi (in alto, o nella testata di una nuova attività);
   il pulsante vero lo disegniamo noi lì sopra, così il tocco è su questa pagina e il microfono parte subito, anche su iPhone.
@@ -164,19 +165,31 @@
   .asc-x svg { width: 20px; height: 20px }
   .asc-centro { display: grid; justify-items: center; align-content: center; gap: 20px; text-align: center; min-height: 0; overflow-y: auto; max-width: 560px; width: 100%; margin: 0 auto; padding: 8px 0 }
   .asc.con-det .asc-centro { align-content: start }
-  .asc-orb { width: 148px; height: 148px; border-radius: 50%; border: 0; padding: 0; background: none; position: relative; cursor: pointer; display: grid; place-items: center; flex: none; -webkit-tap-highlight-color: transparent; transition: width .3s, height .3s }
+  .asc-orb { --liv: 0; width: 148px; height: 148px; border-radius: 50%; border: 0; padding: 0; background: none; position: relative; cursor: pointer; flex: none; -webkit-tap-highlight-color: transparent; transition: width .3s, height .3s }
   .asc.con-det .asc-orb { width: 96px; height: 96px }
-  .asc-orb::before { content: ""; width: 62%; height: 62%; border-radius: 50%; background: radial-gradient(circle at 50% 42%, #fff8ec 0, #f0dcc0 30%, #c9ad8b 70%, #a88a66 100%);
-    box-shadow: 0 0 34px 8px rgba(232, 211, 180, .35); transition: transform .4s, box-shadow .4s }
-  .asc-orb::after { content: ""; position: absolute; inset: 10%; border-radius: 50%; border: 2px solid rgba(232, 211, 180, .5); opacity: 0 }
-  .asc.ascolta .asc-orb::before { animation: orb-respiro 2.6s ease-in-out infinite }
-  .asc.sente .asc-orb::before { transform: scale(1.08); box-shadow: 0 0 46px 14px rgba(232, 211, 180, .5) }
-  .asc.sente .asc-orb::after, .asc.parla .asc-orb::after { animation: orb-onda 1.1s ease-out infinite }
-  .asc.pensa .asc-orb::before { animation: orb-pensa 1.2s ease-in-out infinite }
-  .asc.fermo .asc-orb::before { filter: saturate(.4) brightness(.8); box-shadow: none }
-  @keyframes orb-respiro { 0%, 100% { transform: scale(.94) } 50% { transform: scale(1.03) } }
-  @keyframes orb-onda { 0% { transform: scale(.75); opacity: .7 } 100% { transform: scale(1.15); opacity: 0 } }
-  @keyframes orb-pensa { 0%, 100% { opacity: .65; transform: scale(.92) } 50% { opacity: 1; transform: scale(1) } }
+  .asc-orb i { position: absolute; border-radius: 50%; pointer-events: none }
+  /* alone: cresce e si accende con la voce */
+  .asc-orb .alone { inset: -6%; background: radial-gradient(circle, rgba(240, 220, 192, .55) 0, rgba(240, 220, 192, .18) 42%, rgba(240, 220, 192, 0) 70%);
+    opacity: calc(.35 + var(--liv) * .65); transform: scale(calc(.82 + var(--liv) * .38)) }
+  /* nucleo: la sfera vera, con una luce interna che si sposta piano */
+  .asc-orb .nucleo { inset: 19%; background: radial-gradient(circle at 38% 34%, #fffaf1 0, #f3e2c8 22%, rgba(243, 226, 200, 0) 48%),
+    radial-gradient(circle at 50% 50%, #ead4b4 0, #c9ad8b 62%, #9d7f5c 100%);
+    box-shadow: 0 0 30px 6px rgba(232, 211, 180, .32), inset 0 -6px 14px rgba(90, 66, 40, .28);
+    transform: scale(calc(1 + var(--liv) * .13)); transition: filter .5s, box-shadow .5s }
+  .asc-orb .luce { inset: 19%; background: conic-gradient(from 0deg, rgba(255, 255, 255, 0) 0 45%, rgba(255, 252, 245, .95) 70%, rgba(255, 255, 255, 0) 90%);
+    -webkit-mask: radial-gradient(circle, transparent 50%, #000 56%); mask: radial-gradient(circle, transparent 50%, #000 56%); opacity: 0; transition: opacity .4s }
+  .asc-orb .onda { inset: 19%; border: 1.5px solid rgba(232, 211, 180, .6); opacity: 0 }
+  .asc.ascolta .asc-orb .nucleo { animation: orb-respiro 2.8s ease-in-out infinite }
+  .asc.sente .asc-orb .onda, .asc.parla .asc-orb .onda { animation: orb-onda 1.8s cubic-bezier(.2, .6, .3, 1) infinite }
+  .asc.sente .asc-orb .onda.b, .asc.parla .asc-orb .onda.b { animation-delay: .9s }
+  .asc.pensa .asc-orb .luce { opacity: 1; animation: orb-gira 1.3s linear infinite }
+  .asc.pensa .asc-orb .nucleo { animation: orb-pensa 1.6s ease-in-out infinite }
+  .asc.fermo .asc-orb .nucleo { filter: saturate(.35) brightness(.72); box-shadow: inset 0 -6px 14px rgba(90, 66, 40, .28) }
+  .asc.fermo .asc-orb .alone { opacity: .12 }
+  @keyframes orb-respiro { 0%, 100% { transform: scale(.95) } 50% { transform: scale(1.03) } }
+  @keyframes orb-onda { 0% { transform: scale(.95); opacity: .55 } 100% { transform: scale(1.75); opacity: 0 } }
+  @keyframes orb-pensa { 0%, 100% { filter: brightness(.9) } 50% { filter: brightness(1.08) } }
+  @keyframes orb-gira { to { transform: rotate(1turn) } }
   .asc-dom { margin: 0; font-size: 21px; line-height: 1.32; font-weight: 600; max-width: 32ch; text-wrap: pretty }
   .asc-dom:empty, .asc-tu:empty, .asc-det:empty { display: none }
   .asc-tu { margin: 0; font-size: 17px; color: #c9c6bd; max-width: 34ch }
@@ -193,8 +206,8 @@
   .asc-bt button[hidden] { display: none }
   .asc-bt.uno { grid-template-columns: 1fr }
   @media (prefers-reduced-motion: reduce) {
-    .asc, .lumi-btn i::before, .asc-orb::before, .asc-orb::after { animation: none !important }
-    .asc.sente .asc-orb::after, .asc.parla .asc-orb::after { opacity: .5 }
+    .asc, .lumi-btn i::before, .asc-orb i { animation: none !important }
+    .asc.sente .asc-orb .onda, .asc.parla .asc-orb .onda, .asc.pensa .asc-orb .luce { opacity: .45 }
   }
 </style>
 <button type="button" class="lumi-btn" id="lumiBtn" aria-label="Parla con Lumi" hidden><i aria-hidden="true"></i></button>
@@ -202,7 +215,7 @@
   <div class="asc-testa"><span class="asc-tit" id="ascTit">Parla con Lumi</span>
     <button type="button" class="asc-x" id="ascNo" aria-label="Chiudi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
   <div class="asc-centro">
-    <button type="button" class="asc-orb" id="ascMic" aria-label="Parla"></button>
+    <button type="button" class="asc-orb" id="ascMic" aria-label="Parla"><i class="alone"></i><i class="onda"></i><i class="onda b"></i><i class="nucleo"></i><i class="luce"></i></button>
     <p class="asc-dom" id="ascDom" aria-live="polite"></p>
     <p class="asc-tu" id="ascTu"></p>
     <p class="asc-det" id="ascDet"></p>
@@ -248,15 +261,64 @@
       try { var l = speechSynthesis.getVoices().filter(function (v) { return /^it/i.test(v.lang); }); l.sort(function (a, b) { return punti(b) - punti(a); }); voce = l[0] || null; } catch (e) {}
     }
     if (window.speechSynthesis) { scegliVoce(); try { speechSynthesis.addEventListener("voiceschanged", scegliVoce); } catch (e) {} }
-    function parla(t, poi) {
+    // volume della voce → sfera (--liv). Con la voce Google lo misura l'analizzatore; con quella del telefono lo simuliamo.
+    var poco = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+    var liv = 0, spinto = 0, rafLiv = 0, analisi = null, campioni = null, tFinto = null;
+    function livello() {
+      var v = spinto;
+      if (analisi) { analisi.getByteTimeDomainData(campioni); var s = 0; for (var i = 0; i < campioni.length; i++) { var x = (campioni[i] - 128) / 128; s += x * x; } v = Math.min(1, Math.sqrt(s / campioni.length) * 4.2); }
+      spinto *= .86;
+      liv += (v - liv) * (v > liv ? .55 : .14);
+      mic.style.setProperty("--liv", liv.toFixed(3));
+      if (analisi || liv > .01 || spinto > .01) rafLiv = requestAnimationFrame(livello);
+      else { rafLiv = 0; liv = 0; mic.style.setProperty("--liv", "0"); }
+    }
+    function anima() { if (!rafLiv && !poco) rafLiv = requestAnimationFrame(livello); }
+    function spinta(x) { spinto = Math.max(spinto, x); anima(); }
+    function finto(on) { clearInterval(tFinto); if (on && !poco) tFinto = setInterval(function () { spinta(.3 + Math.random() * .55); }, 140); }
+
+    var actx = null, sorgAudio = null, giro = 0, voci = {};
+    function sbloccaAudio() {
+      try {
+        var C = window.AudioContext || window.webkitAudioContext;
+        if (!actx && C) actx = new C();
+        if (!actx) return;
+        if (actx.state !== "running") actx.resume();
+        var s = actx.createBufferSource(); s.buffer = actx.createBuffer(1, 1, 22050); s.connect(actx.destination); s.start(0);
+      } catch (e) {}
+    }
+    function mp3(b64) { var s = atob(b64), u = new Uint8Array(s.length); for (var i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return u.buffer; }
+    function suona(b64, poi, riserva) {
+      var g = ++giro, fatto = false;
+      var avanti = function () { if (fatto || g !== giro) return; fatto = true; clearTimeout(tVoce); analisi = null; sorgAudio = null; if (poi) setTimeout(poi, 250); };
+      var ripiega = function () { if (fatto || g !== giro) return; fatto = true; analisi = null; riserva(); };
+      try {
+        if (actx.state !== "running") actx.resume();
+        actx.decodeAudioData(mp3(b64), function (buf) {
+          if (fatto || g !== giro) return;
+          var s = actx.createBufferSource(), an = actx.createAnalyser(); an.fftSize = 512;
+          s.buffer = buf; s.connect(an); an.connect(actx.destination);
+          analisi = an; campioni = new Uint8Array(an.fftSize); sorgAudio = s;
+          s.onended = avanti; s.start(0); anima();
+          clearTimeout(tVoce); tVoce = setTimeout(avanti, buf.duration * 1000 + 2500);
+        }, ripiega);
+        clearTimeout(tVoce); tVoce = setTimeout(ripiega, 4000);              // mp3 che non si apre: voce del telefono
+      } catch (e) { ripiega(); }
+    }
+    function parla(t, poi, audio) {
+      if (audio && actx) { suona(audio, poi, function () { parlaTel(t, poi); }); return; }
+      parlaTel(t, poi);
+    }
+    // voce del telefono: tutta di fila (spezzata solo se è molto lunga, perché iPhone taglia le frasi lunghe)
+    function parlaTel(t, poi) {
       try {
         if (!window.speechSynthesis || !t) { if (poi) poi(); return; }
         speechSynthesis.cancel();
-        var frasi = String(t).match(/[^.!?]+[.!?]*/g) || [t];
-        var fatto = false, partita = false, avanti = function () { if (!fatto) { fatto = true; clearTimeout(tVoce); if (poi) setTimeout(poi, 300); } };
+        var frasi = String(t).length > 260 ? String(t).match(/[^.!?]+[.!?]*/g) || [t] : [t];
+        var fatto = false, partita = false, avanti = function () { if (!fatto) { fatto = true; finto(false); clearTimeout(tVoce); if (poi) setTimeout(poi, 300); } };
         frasi.forEach(function (f, i) {
-          var u = new SpeechSynthesisUtterance(f.trim()); u.lang = voce ? voce.lang : "it-IT"; if (voce) u.voice = voce; u.rate = 1.02;
-          u.onstart = function () { partita = true; };
+          var u = new SpeechSynthesisUtterance(String(f).trim()); u.lang = voce ? voce.lang : "it-IT"; if (voce) u.voice = voce; u.rate = 1.02;
+          u.onstart = function () { partita = true; finto(true); };
           if (i === frasi.length - 1) u.onend = u.onerror = avanti;
           speechSynthesis.speak(u);
         });
@@ -267,7 +329,11 @@
         }
       } catch (e) { if (poi) poi(); }
     }
-    function zitta() { clearTimeout(tVoce); try { if (window.speechSynthesis) speechSynthesis.cancel(); } catch (e) {} }
+    function zitta() {
+      giro++; clearTimeout(tVoce); finto(false); analisi = null;
+      if (sorgAudio) { try { sorgAudio.onended = null; sorgAudio.stop(); } catch (e) {} sorgAudio = null; }
+      try { if (window.speechSynthesis) speechSynthesis.cancel(); } catch (e) {}
+    }
 
     function fermaTimer() { clearTimeout(tSil); clearTimeout(tMax); clearTimeout(tNiente); clearTimeout(tPronto); clearTimeout(tAttesa); }
     // fine della conversazione: spegne il microfono
@@ -306,7 +372,7 @@
         cur.forEach(function (c, i) { var o = vecchie[i] || "", k = 0; while (k < o.length && k < c.length && o[k] === c[k]) k++; t += c.slice(k) + " "; });
         t = (prima + " " + t).replace(/\s+/g, " ").trim();
         if (!t || t === sentito) return;
-        sentito = t; tu.textContent = t; aspetto("sente"); clearTimeout(tNiente); riavvii = 0;
+        sentito = t; tu.textContent = t; aspetto("sente"); spinta(.55); clearTimeout(tNiente); riavvii = 0;
         clearTimeout(tSil); tSil = setTimeout(fineFrase, 2500);           // una pausa di 2,5 s dopo aver parlato = «ho finito»
       };
       r.onerror = function (e) { if (rec === r) errore = e.error || "errore"; };
@@ -346,10 +412,10 @@
       aNodo(t);
     }
     // Lumi dice una cosa (e se c'è il dettaglio lo scrive), poi va avanti
-    function dice(frase, dettaglio, poi) {
+    function dice(frase, dettaglio, poi, audio) {
       dom.textContent = frase; tu.textContent = ""; det.textContent = dettaglio || "";
       aspetto("parla", "");
-      parla(frase, poi);
+      parla(frase, poi, audio);
     }
     // iPhone spesso non chiude l'ascolto quando glielo si chiede: dopo 0,7 s chiudiamo noi con quello che abbiamo sentito
     function ferma() {
@@ -380,6 +446,7 @@
       setTimeout(function () { try { txt.focus(); } catch (e) {} }, 50);
     }
     function sblocca() {
+      sbloccaAudio();
       if (!sbloccata && window.speechSynthesis) { try { var u = new SpeechSynthesisUtterance(" "); u.volume = 0; speechSynthesis.speak(u); sbloccata = true; } catch (e) {} }
     }
 
@@ -389,8 +456,9 @@
       chiesto = false; scrivendo = false; scr.hidden = true; txt.value = ""; bottoni();
       tu.textContent = ""; det.textContent = ""; pan.hidden = false; btn.hidden = true;
       manda({ nodo: "lumi-via" });
-      var saluto = lumi.segue ? "Dimmi cosa aggiungo o cambio." : "Ciao" + (lumi.nome ? " " + lumi.nome : "") + ", dimmi pure.";
-      if (accendi(true)) dice(saluto, "", inAscolto);
+      var v = lumi.segue ? voci.segue : voci.saluto;
+      var saluto = v ? v.testo : lumi.segue ? "Dimmi cosa aggiungo o cambio." : "Ciao" + (lumi.nome ? " " + lumi.nome : "") + ", dimmi pure.";
+      if (accendi(true)) dice(saluto, "", inAscolto, v && v.audio);
       else dom.textContent = saluto;
     });
     // il cerchio: se è fermo riaccende il microfono, se sta ascoltando vuol dire «ho finito»
@@ -436,14 +504,25 @@
         lumi.nome = String(d.nome || "").slice(0, 30); lumi.segue = !!d.segue;
         posiziona(); return;
       }
+      // la voce di Lumi per le frasi fisse (saluto, «Fatto…», errore): mp3 già pronti
+      if (d.nodo === "lumi-voci") {
+        var vv = d.voci && typeof d.voci === "object" ? d.voci : {};
+        voci = {};
+        ["saluto", "segue", "fatto", "errore"].forEach(function (k) {
+          var x = vv[k];
+          if (x && typeof x.testo === "string" && typeof x.audio === "string" && x.audio.length < 300000) voci[k] = { testo: x.testo.slice(0, 120), audio: x.audio };
+        });
+        return;
+      }
       // la risposta di Lumi: la dice, scrive il dettaglio e riascolta; «fine» = lavoro compilato, la pagina si chiude
       if (d.nodo === "lumi-risposta") {
         if (pan.hidden) return;
         clearTimeout(tAttesa);
         var testo = String(d.testo || "").slice(0, 600), dt = String(d.dettaglio || "").slice(0, 4000);
-        if (d.fine) { fineConv(); dice(testo, "", function () { chiudi(); }); return; }
+        var au = typeof d.voce === "string" && d.voce.length < 600000 ? d.voce : "";
+        if (d.fine) { fineConv(); dice(testo, "", function () { chiudi(); }, au || (voci.fatto && voci.fatto.testo === testo ? voci.fatto.audio : "")); return; }
         if (rec) muto = true;
-        dice(testo, dt, inAscolto);
+        dice(testo, dt, inAscolto, au);
         return;
       }
       // NODO non ce l'ha fatta (AI non raggiungibile, accesso scaduto…): lo diciamo e lasciamo riprovare o scrivere
@@ -452,7 +531,7 @@
         fineConv(); chiesto = false;
         dom.textContent = "Non ci sono riuscita."; tu.textContent = ""; det.textContent = "";
         aspetto("fermo", String(d.testo || "").slice(0, 200) + " Tocca il cerchio per riprovare.");
-        parla("Non ci sono riuscita.");
+        aspetto("fermo"); parla("Non ci sono riuscita.", null, voci.errore && voci.errore.audio);
         return;
       }
       // NODO dice una frase (vecchio «Parla e compila»): se la pagina è aperta la chiude dopo averla detta
