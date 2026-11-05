@@ -139,7 +139,8 @@
 <!-- ===== Ascolto per «Parla e compila» =====
   NODO gira dentro il riquadro di Google, che non può usare il microfono. Questa pagina d'ingresso sì: quando NODO chiede
   di ascoltare, apre questo pannello, ascolta, e rimanda a NODO solo il testo capito (non lo mostra da nessuna parte).
-  Se NODO ha una domanda, la legge prima a voce (la voce femminile italiana più naturale del telefono) e poi ascolta la risposta. -->
+  Se NODO ha una domanda, la legge prima a voce (la voce femminile italiana più naturale del telefono) e poi ascolta la risposta.
+  r4: conversazione continua, dopo il primo tocco il microfono resta aperto finché NODO non dice «Fatto» (o Annulla). -->
 <style>
   .asc { position: fixed; inset: 0; z-index: 5; display: grid; align-items: end; background: rgba(10, 16, 18, .55);
     font: 16px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif }
@@ -174,6 +175,9 @@
     var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     var pan = document.getElementById("asc"), mic = document.getElementById("ascMic"), stato = document.getElementById("ascStato"), dom = document.getElementById("ascDom");
     var sorg = null, orig = "", richiesta = 0, rec = null, sentito = "", errore = "", tSil = null, tMax = null, tNiente = null, daTocco = false, toccoRec = false, sbloccata = false, tPronto = null;
+    // Conversazione: dopo il primo tocco il microfono resta aperto per tutta la conversazione. Mentre NODO compila e mentre
+    // la voce fa la domanda è «muto» (quello che sente non conta); dopo la domanda torna ad ascoltare da solo, senza tocchi.
+    var conv = false, muto = false, fermo = false, vecchie = [], ultime = [], prima = "", riavvii = 0, tAttesa = null, tVoce = null;
     // iPhone/iPad: il microfono parte solo da un tocco su questa pagina, mai da solo
     var iOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
     var manda = function (m) { try { if (sorg) sorg.postMessage(m, orig); } catch (e) {} };
@@ -200,67 +204,118 @@
         if (!window.speechSynthesis || !t) { if (poi) poi(); return; }
         speechSynthesis.cancel();
         var frasi = String(t).match(/[^.!?]+[.!?]*/g) || [t];
-        var fatto = false, partita = false, avanti = function () { if (!fatto) { fatto = true; if (poi) setTimeout(poi, 300); } };
+        var fatto = false, partita = false, avanti = function () { if (!fatto) { fatto = true; clearTimeout(tVoce); if (poi) setTimeout(poi, 300); } };
         frasi.forEach(function (f, i) {
           var u = new SpeechSynthesisUtterance(f.trim()); u.lang = voce ? voce.lang : "it-IT"; if (voce) u.voice = voce; u.rate = 1.02;
           u.onstart = function () { partita = true; };
           if (i === frasi.length - 1) u.onend = u.onerror = avanti;
           speechSynthesis.speak(u);
         });
-        // iPhone non parla finché non si è toccata questa pagina: in quel caso non restiamo fermi ad aspettare
-        if (poi) setTimeout(function () { if (!partita && !fatto) { try { speechSynthesis.cancel(); } catch (e) {} avanti(); } }, 2500);
+        // iPhone non parla finché non si è toccata questa pagina: in quel caso non restiamo fermi ad aspettare;
+        // e se la fine della frase non arriva, andiamo avanti dopo il tempo che serve a dirla
+        if (poi) {
+          setTimeout(function () { if (!partita && !fatto) { try { speechSynthesis.cancel(); } catch (e) {} avanti(); } }, 2500);
+          clearTimeout(tVoce); tVoce = setTimeout(avanti, 4000 + String(t).length * 90);
+        }
       } catch (e) { if (poi) poi(); }
     }
 
-    function chiudi(m) {
-      clearTimeout(tSil); clearTimeout(tMax); clearTimeout(tNiente); clearTimeout(tPronto);
+    function ferma_timer() { clearTimeout(tSil); clearTimeout(tMax); clearTimeout(tNiente); clearTimeout(tPronto); clearTimeout(tAttesa); }
+    // fine della conversazione: spegne il microfono
+    function fineConv() {
+      conv = false; muto = false; ferma_timer();
       var r = rec; rec = null; if (r) { try { r.abort(); } catch (e) {} }
-      mic.classList.remove("on", "sente"); pan.hidden = true;
+      mic.classList.remove("on", "sente");
+    }
+    function chiudi(m) {
+      fineConv(); pan.hidden = true;
       if (m) manda(m);
+    }
+    // un riconoscimento vocale nuovo; in conversazione tiene a parte quello che aveva già sentito (vecchie) e lo ignora
+    function avvia() {
+      var r = new SR(); r.lang = "it-IT"; r.continuous = true; r.interimResults = true; r.maxAlternatives = 1;
+      vecchie = []; ultime = []; prima = muto ? "" : sentito; fermo = false;
+      r.onresult = function (e) {
+        if (rec !== r) return;
+        var cur = []; for (var i = 0; i < e.results.length; i++) cur.push(e.results[i][0].transcript);
+        ultime = cur;
+        if (muto) return;
+        var t = "";
+        cur.forEach(function (c, i) { var o = vecchie[i] || "", k = 0; while (k < o.length && k < c.length && o[k] === c[k]) k++; t += c.slice(k) + " "; });
+        t = (prima + " " + t).replace(/\s+/g, " ").trim();
+        if (!t || t === sentito) return;
+        sentito = t; mic.classList.add("sente"); clearTimeout(tNiente); riavvii = 0;
+        clearTimeout(tSil); tSil = setTimeout(fineFrase, 2500);           // una pausa di 2,5 s dopo aver parlato = «ho finito»
+      };
+      r.onerror = function (e) { if (rec === r) errore = e.error || "errore"; };
+      r.onstart = r.onaudiostart = function () { clearTimeout(tPronto); };
+      r.onend = function () { if (rec === r) finito(); };
+      r.start();
+      return r;
     }
     function ascolta() {
       if (rec) { ferma(); return; }
       if (!SR) { chiudi({ nodo: "sentito", id: richiesta, errore: "non-supportato" }); return; }
       try { if (speechSynthesis.speaking) speechSynthesis.cancel(); } catch (e) {}
-      sentito = ""; errore = "";
-      var r = rec = new SR(); r.lang = "it-IT"; r.continuous = true; r.interimResults = true; r.maxAlternatives = 1;
-      r.onresult = function (e) {
-        if (rec !== r) return;
-        var t = ""; for (var i = 0; i < e.results.length; i++) t += e.results[i][0].transcript + " ";
-        sentito = t.replace(/\s+/g, " ").trim(); mic.classList.add("sente"); clearTimeout(tNiente);
-        clearTimeout(tSil); tSil = setTimeout(ferma, 2500);           // una pausa di 2,5 s dopo aver parlato = «ho finito»
-      };
-      r.onerror = function (e) { if (rec === r) errore = e.error || "errore"; };
-      r.onstart = r.onaudiostart = function () { clearTimeout(tPronto); };
-      r.onend = function () { if (rec === r) finito(); };
+      sentito = ""; errore = ""; muto = false; riavvii = 0;
       toccoRec = daTocco; daTocco = false;
-      try { r.start(); } catch (e) { rec = null; mic.classList.remove("on"); stato.textContent = "Tocca il microfono e parla"; return; }
+      if (toccoRec) conv = true;
+      var r;
+      try { r = rec = avvia(); } catch (e) { rec = null; conv = false; mic.classList.remove("on"); stato.textContent = "Tocca il microfono e parla"; return; }
       mic.classList.add("on"); stato.textContent = "Ti ascolto…";
       clearTimeout(tPronto);
       tPronto = setTimeout(function () {
         if (rec !== r) return;
-        rec = null; try { r.abort(); } catch (e) {}
-        clearTimeout(tSil); clearTimeout(tMax); clearTimeout(tNiente);
-        mic.classList.remove("on", "sente");
+        fineConv();
         stato.textContent = toccoRec ? "Il microfono non risponde: tocca Annulla e scrivi il lavoro" : "Tocca il microfono e parla";
       }, 3000);
-      tNiente = setTimeout(ferma, 9000); tMax = setTimeout(ferma, 90000);
+      tNiente = setTimeout(ferma, 12000); tMax = setTimeout(ferma, 90000);
+    }
+    // l'utente ha smesso di parlare: in conversazione il testo va a NODO e il microfono resta aperto (muto) per la risposta
+    function fineFrase() {
+      if (!(conv && rec)) { ferma(); return; }
+      var t = sentito.trim();
+      if (!t) return;
+      clearTimeout(tSil); clearTimeout(tMax); clearTimeout(tNiente);
+      muto = true; sentito = ""; mic.classList.remove("sente");
+      pan.hidden = true;
+      manda({ nodo: "sentito", id: richiesta, testo: t });
+      // se NODO non torna con una domanda entro un minuto, spegniamo il microfono
+      clearTimeout(tAttesa); tAttesa = setTimeout(fineConv, 60000);
+    }
+    // NODO fa la domanda: la voce la legge, poi si torna ad ascoltare senza tocchi
+    function rispondi(domanda) {
+      clearTimeout(tAttesa);
+      pan.hidden = false; dom.textContent = domanda.slice(0, 400);
+      mic.classList.remove("sente"); stato.textContent = "Ascolta…";
+      parla(domanda.slice(0, 400), function () {
+        if (!(conv && rec)) { stato.textContent = "Tocca il microfono e rispondi"; return; }
+        vecchie = ultime.slice(); prima = ""; sentito = ""; errore = ""; riavvii = 0; muto = false;
+        mic.classList.add("on"); stato.textContent = "Ti ascolto…";
+        clearTimeout(tNiente); tNiente = setTimeout(function () { fineConv(); stato.textContent = "Tocca il microfono e rispondi"; }, 20000);
+        clearTimeout(tMax); tMax = setTimeout(ferma, 90000);
+      });
     }
     // iPhone spesso non chiude l'ascolto quando glielo si chiede: dopo 0,7 s chiudiamo noi con quello che abbiamo sentito
     function ferma() {
       clearTimeout(tSil); clearTimeout(tMax); clearTimeout(tNiente);
       var r = rec; if (!r) return;
+      if (conv && !muto && sentito.trim()) { fineFrase(); return; }
+      fermo = true;
       stato.textContent = "Un attimo…";
       try { r.stop(); } catch (e) {}
       setTimeout(function () { if (rec === r) finito(); }, 700);
     }
     function finito() {
-      var t = sentito.trim(), err = errore;
+      // il telefono ha chiuso il microfono da solo in mezzo alla conversazione: proviamo a riaprirlo
+      if (conv && rec && !fermo && errore !== "not-allowed" && errore !== "service-not-allowed" && riavvii < 4) {
+        riavvii++;
+        try { rec = avvia(); return; } catch (e) {}
+      }
+      var t = muto ? "" : sentito.trim(), err = errore, aspetta = muto;
+      fineConv();
+      if (aspetta) return;                                  // NODO sta compilando: alla domanda si toccherà il microfono
       if (t) { chiudi({ nodo: "sentito", id: richiesta, testo: t }); return; }
-      clearTimeout(tSil); clearTimeout(tMax); clearTimeout(tNiente);
-      clearTimeout(tPronto);
-      var r = rec; rec = null; if (r) { try { r.abort(); } catch (e) {} }
-      mic.classList.remove("on", "sente");
       if ((err === "not-allowed" || err === "service-not-allowed") && !toccoRec) { stato.textContent = "Tocca il microfono e parla"; return; }
       if (err === "not-allowed" || err === "service-not-allowed") {
         // permesso negato: lo diciamo a NODO, che passa allo scrivere
@@ -272,10 +327,14 @@
 
     mic.addEventListener("click", function () {
       if (!sbloccata && window.speechSynthesis) { try { var u = new SpeechSynthesisUtterance(" "); u.volume = 0; speechSynthesis.speak(u); sbloccata = true; } catch (e) {} }
+      if (rec && muto) return;                              // sta parlando la voce: un attimo
       if (!rec) daTocco = true;
       ascolta();
     });
-    document.getElementById("ascFine").addEventListener("click", function () { if (rec) ferma(); else chiudi({ nodo: "sentito", id: richiesta, annullato: true }); });
+    document.getElementById("ascFine").addEventListener("click", function () {
+      if (rec && !muto && sentito.trim()) { ferma(); return; }
+      chiudi({ nodo: "sentito", id: richiesta, annullato: true });
+    });
     pan.addEventListener("click", function (e) { if (e.target === pan) chiudi({ nodo: "sentito", id: richiesta, annullato: true }); });
     document.getElementById("ascNo").addEventListener("click", function () { chiudi({ nodo: "sentito", id: richiesta, annullato: true }); });
 
@@ -283,13 +342,18 @@
       if (!/^https:\/\/[a-z0-9-]+\.googleusercontent\.com$/.test(e.origin) || !e.data || typeof e.data !== "object") return;
       var d = e.data;
       if (d.nodo === "ascolto?") { sorg = e.source; orig = e.origin; manda({ nodo: "ascolto", ok: !!SR }); return; }
-      if (d.nodo === "parla") { parla(String(d.testo || "").slice(0, 400)); return; }
+      // a fine conversazione NODO dice «Fatto…»: spegniamo il microfono e lo diciamo
+      if (d.nodo === "parla") { if (conv) fineConv(); parla(String(d.testo || "").slice(0, 400)); return; }
       if (d.nodo !== "ascolta") return;
       sorg = e.source; orig = e.origin; richiesta = Number(d.id) || 0;
-      dom.textContent = String(d.domanda || "").slice(0, 400); stato.textContent = "Tocca e parla"; pan.hidden = false;
+      var domanda = String(d.domanda || "");
+      // conversazione in corso con il microfono ancora aperto: domanda a voce e risposta senza tocchi
+      if (conv && rec && domanda) { rispondi(domanda); return; }
+      if (conv) fineConv();
+      dom.textContent = domanda.slice(0, 400); stato.textContent = "Tocca e parla"; pan.hidden = false;
       // con una domanda: prima la legge, poi ascolta; senza: ascolta subito (il tocco in NODO di solito basta per il permesso)
-      if (iOS) { if (d.domanda) parla(String(d.domanda).slice(0, 400)); stato.textContent = "Tocca il microfono e parla"; return; }
-      if (d.domanda) parla(String(d.domanda).slice(0, 400), ascolta); else ascolta();
+      if (iOS) { if (domanda) parla(domanda.slice(0, 400)); stato.textContent = "Tocca il microfono e parla"; return; }
+      if (domanda) parla(domanda.slice(0, 400), ascolta); else ascolta();
     });
   })();
 </script>
