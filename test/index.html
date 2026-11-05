@@ -173,7 +173,9 @@
   (function () {
     var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     var pan = document.getElementById("asc"), mic = document.getElementById("ascMic"), stato = document.getElementById("ascStato"), dom = document.getElementById("ascDom");
-    var sorg = null, orig = "", richiesta = 0, rec = null, sentito = "", errore = "", tSil = null, tMax = null, tNiente = null, daTocco = false, toccoRec = false, sbloccata = false;
+    var sorg = null, orig = "", richiesta = 0, rec = null, sentito = "", errore = "", tSil = null, tMax = null, tNiente = null, daTocco = false, toccoRec = false, sbloccata = false, tPronto = null;
+    // iPhone/iPad: il microfono parte solo da un tocco su questa pagina, mai da solo
+    var iOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
     var manda = function (m) { try { if (sorg) sorg.postMessage(m, orig); } catch (e) {} };
 
     // voce: la femminile italiana più naturale che il telefono ha (Premium, Avanzata, Natural…); scarta maschili e voci giocattolo
@@ -211,7 +213,7 @@
     }
 
     function chiudi(m) {
-      clearTimeout(tSil); clearTimeout(tMax); clearTimeout(tNiente);
+      clearTimeout(tSil); clearTimeout(tMax); clearTimeout(tNiente); clearTimeout(tPronto);
       var r = rec; rec = null; if (r) { try { r.abort(); } catch (e) {} }
       mic.classList.remove("on", "sente"); pan.hidden = true;
       if (m) manda(m);
@@ -229,10 +231,19 @@
         clearTimeout(tSil); tSil = setTimeout(ferma, 2500);           // una pausa di 2,5 s dopo aver parlato = «ho finito»
       };
       r.onerror = function (e) { if (rec === r) errore = e.error || "errore"; };
+      r.onstart = r.onaudiostart = function () { clearTimeout(tPronto); };
       r.onend = function () { if (rec === r) finito(); };
       toccoRec = daTocco; daTocco = false;
       try { r.start(); } catch (e) { rec = null; mic.classList.remove("on"); stato.textContent = "Tocca il microfono e parla"; return; }
       mic.classList.add("on"); stato.textContent = "Ti ascolto…";
+      clearTimeout(tPronto);
+      tPronto = setTimeout(function () {
+        if (rec !== r) return;
+        rec = null; try { r.abort(); } catch (e) {}
+        clearTimeout(tSil); clearTimeout(tMax); clearTimeout(tNiente);
+        mic.classList.remove("on", "sente");
+        stato.textContent = toccoRec ? "Il microfono non risponde: tocca Annulla e scrivi il lavoro" : "Tocca il microfono e parla";
+      }, 3000);
       tNiente = setTimeout(ferma, 9000); tMax = setTimeout(ferma, 90000);
     }
     // iPhone spesso non chiude l'ascolto quando glielo si chiede: dopo 0,7 s chiudiamo noi con quello che abbiamo sentito
@@ -247,6 +258,7 @@
       var t = sentito.trim(), err = errore;
       if (t) { chiudi({ nodo: "sentito", id: richiesta, testo: t }); return; }
       clearTimeout(tSil); clearTimeout(tMax); clearTimeout(tNiente);
+      clearTimeout(tPronto);
       var r = rec; rec = null; if (r) { try { r.abort(); } catch (e) {} }
       mic.classList.remove("on", "sente");
       if ((err === "not-allowed" || err === "service-not-allowed") && !toccoRec) { stato.textContent = "Tocca il microfono e parla"; return; }
@@ -264,6 +276,7 @@
       ascolta();
     });
     document.getElementById("ascFine").addEventListener("click", function () { if (rec) ferma(); else chiudi({ nodo: "sentito", id: richiesta, annullato: true }); });
+    pan.addEventListener("click", function (e) { if (e.target === pan) chiudi({ nodo: "sentito", id: richiesta, annullato: true }); });
     document.getElementById("ascNo").addEventListener("click", function () { chiudi({ nodo: "sentito", id: richiesta, annullato: true }); });
 
     window.addEventListener("message", function (e) {
@@ -275,6 +288,7 @@
       sorg = e.source; orig = e.origin; richiesta = Number(d.id) || 0;
       dom.textContent = String(d.domanda || "").slice(0, 400); stato.textContent = "Tocca e parla"; pan.hidden = false;
       // con una domanda: prima la legge, poi ascolta; senza: ascolta subito (il tocco in NODO di solito basta per il permesso)
+      if (iOS) { if (d.domanda) parla(String(d.domanda).slice(0, 400)); stato.textContent = "Tocca il microfono e parla"; return; }
       if (d.domanda) parla(String(d.domanda).slice(0, 400), ascolta); else ascolta();
     });
   })();
