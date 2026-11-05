@@ -28,11 +28,8 @@
   .splash { position: fixed; inset: 0; z-index: 2; display: grid; place-items: center; background: var(--night); color: var(--paper);
     font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; transition: opacity .35s }
   .splash.via { opacity: 0; pointer-events: none }
+  /* niente logo fisso: il logo animato parte dentro l'app appena è pronta */
   .splash > div { display: grid; justify-items: center; gap: 18px; text-align: center; padding: 16px }
-  .splash svg { width: 110px; height: auto }
-  .splash b { font-size: 34px; font-weight: 600; letter-spacing: .18em; padding-left: .18em }
-  .splash .rule { width: 40px; height: 2px; border-radius: 1px; background: var(--champ) }
-  .splash small { letter-spacing: .28em; text-transform: uppercase; font-size: 11px; color: #e6e4df }
   .splash a { color: var(--champ); font-size: 14px }
   @media (prefers-reduced-motion: reduce) { .splash { transition: none } }
   /* invito alle notifiche: lo mostra questa pagina perché su iPhone il permesso si chiede solo da un tocco qui */
@@ -48,12 +45,8 @@
 </style>
 </head>
 <body>
-<div class="splash" id="splash">
+<div class="splash" id="splash" role="status" aria-label="Apertura di NODO">
   <div>
-    <svg viewBox="0 0 210 185" role="img" aria-label="NODO"><g transform="translate(0 7)"><defs><clipPath id="sp"><rect x="0" y="97" width="260" height="140"/></clipPath></defs><rect x="28" y="34" width="102" height="102" rx="33" fill="none" stroke="#FAFAF7" stroke-width="23" transform="rotate(-34 79 85)"/><rect x="80" y="34" width="102" height="102" rx="33" fill="none" stroke="#C9AD8B" stroke-width="23" transform="rotate(34 131 85)"/><rect x="28" y="34" width="102" height="102" rx="33" fill="none" stroke="#FAFAF7" stroke-width="23" transform="rotate(-34 79 85)" clip-path="url(#sp)"/></g></svg>
-    <b>NODO</b>
-    <div class="rule"></div>
-    <small>Il gestionale che unisce</small>
     <a id="direct" href="#" hidden>Non si apre? Tocca qui per aprire NODO</a>
   </div>
 </div>
