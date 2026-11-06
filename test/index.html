@@ -137,6 +137,7 @@
 </script>
 <noscript><p style="color:#fafaf7; text-align:center"><a style="color:#c9ad8b" href="https://script.google.com/macros/s/AKfycbxM-9nYEvalIwLsQAkItjPQAcn0SfAD2e8peb0YLV21wC4Ny5aTk8G_hTh5WCrIdeKF/exec">Apri NODO</a></p></noscript>
 <!-- ===== Ascolto per «Parla e compila» =====
+  r7 — frasi d'attesa parlate mentre NODO cerca la risposta.
   r6 — voce Google (Chirp 3 HD) che arriva da NODO in mp3, sfera che segue il volume della voce.
   r5 — Lumi, l'assistente di NODO. NODO gira dentro il riquadro di Google, che non può usare il microfono: questa pagina
   d'ingresso sì. NODO ci dice dove tiene il posto per il pulsante Lumi (in alto, o nella testata di una nuova attività);
@@ -330,10 +331,33 @@
       } catch (e) { if (poi) poi(); }
     }
     function zitta() {
-      giro++; clearTimeout(tVoce); finto(false); analisi = null;
+      giro++; clearTimeout(tVoce); finto(false); analisi = null; fermaAttesa(); riemp.suona = false; riemp.poi = null;
       if (sorgAudio) { try { sorgAudio.onended = null; sorgAudio.stop(); } catch (e) {} sorgAudio = null; }
       try { if (window.speechSynthesis) speechSynthesis.cancel(); } catch (e) {}
     }
+
+    // mentre NODO cerca, Lumi parla come una persona: subito «Dammi un secondo…», se tarda «Ci sono quasi.»
+    var riemp = { t: [], suona: false, poi: null };
+    function aCaso(pref) {
+      var k = Object.keys(voci).filter(function (x) { return x.indexOf(pref) === 0; });
+      return k.length ? voci[k[Math.floor(Math.random() * k.length)]] : null;
+    }
+    function riempi(v) {
+      if (!v || pan.hidden || riemp.suona) return;
+      riemp.suona = true; aspetto("pensa", v.testo);
+      suona(v.audio, finitoRiemp, finitoRiemp);
+    }
+    function finitoRiemp() { riemp.suona = false; var f = riemp.poi; riemp.poi = null; if (f) f(); }
+    function attesa() {
+      fermaAttesa();
+      if (!actx) return;
+      riemp.t.push(setTimeout(function () { riempi(aCaso("attesa")); }, 600));
+      riemp.t.push(setTimeout(function () { riempi(voci.quasi1); }, 8000));
+      riemp.t.push(setTimeout(function () { riempi(voci.quasi2); }, 16000));
+    }
+    function fermaAttesa() { riemp.t.forEach(clearTimeout); riemp.t = []; }
+    // la risposta aspetta che Lumi finisca la frase d'attesa, poi parte
+    function dopoAttesa(f) { fermaAttesa(); if (riemp.suona) riemp.poi = f; else f(); }
 
     function fermaTimer() { clearTimeout(tSil); clearTimeout(tMax); clearTimeout(tNiente); clearTimeout(tPronto); clearTimeout(tAttesa); }
     // fine della conversazione: spegne il microfono
@@ -352,7 +376,7 @@
     // il testo va a NODO: come risposta a una sua domanda, oppure come messaggio per Lumi
     function aNodo(t) {
       if (chiesto) { chiesto = false; manda({ nodo: "sentito", id: richiesta, testo: t }); }
-      else manda({ nodo: "lumi-testo", testo: t });
+      else { manda({ nodo: "lumi-testo", testo: t }); attesa(); }
       det.textContent = "";
       aspetto("pensa", "Un attimo…");
       clearTimeout(tAttesa);
@@ -508,7 +532,7 @@
       if (d.nodo === "lumi-voci") {
         var vv = d.voci && typeof d.voci === "object" ? d.voci : {};
         voci = {};
-        ["saluto", "segue", "fatto", "errore"].forEach(function (k) {
+        Object.keys(vv).filter(function (k) { return /^(saluto|segue|fatto|errore|attesa[1-9]|quasi[1-9])$/.test(k); }).forEach(function (k) {
           var x = vv[k];
           if (x && typeof x.testo === "string" && typeof x.audio === "string" && x.audio.length < 300000) voci[k] = { testo: x.testo.slice(0, 120), audio: x.audio };
         });
@@ -520,18 +544,21 @@
         clearTimeout(tAttesa);
         var testo = String(d.testo || "").slice(0, 600), dt = String(d.dettaglio || "").slice(0, 4000);
         var au = typeof d.voce === "string" && d.voce.length < 600000 ? d.voce : "";
-        if (d.fine) { fineConv(); dice(testo, "", function () { chiudi(); }, au || (voci.fatto && voci.fatto.testo === testo ? voci.fatto.audio : "")); return; }
+        if (d.fine) { fineConv(); dopoAttesa(function () { dice(testo, "", function () { chiudi(); }, au || (voci.fatto && voci.fatto.testo === testo ? voci.fatto.audio : "")); }); return; }
         if (rec) muto = true;
-        dice(testo, dt, inAscolto, au);
+        dopoAttesa(function () { dice(testo, dt, inAscolto, au); });
         return;
       }
       // NODO non ce l'ha fatta (AI non raggiungibile, accesso scaduto…): lo diciamo e lasciamo riprovare o scrivere
       if (d.nodo === "lumi-errore") {
         if (pan.hidden) return;
         fineConv(); chiesto = false;
-        dom.textContent = "Non ci sono riuscita."; tu.textContent = ""; det.textContent = "";
-        aspetto("fermo", String(d.testo || "").slice(0, 200) + " Tocca il cerchio per riprovare.");
-        aspetto("fermo"); parla("Non ci sono riuscita.", null, voci.errore && voci.errore.audio);
+        var msg = String(d.testo || "").slice(0, 200);
+        dopoAttesa(function () {
+          dom.textContent = "Non ci sono riuscita."; tu.textContent = ""; det.textContent = "";
+          aspetto("fermo", msg + " Tocca il cerchio per riprovare.");
+          parla("Non ci sono riuscita.", null, voci.errore && voci.errore.audio);
+        });
         return;
       }
       // NODO dice una frase (vecchio «Parla e compila»): se la pagina è aperta la chiude dopo averla detta
