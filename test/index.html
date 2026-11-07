@@ -393,7 +393,19 @@
     function finto(on) { clearInterval(tFinto); if (on && !poco) tFinto = setInterval(function () { spinta(.3 + Math.random() * .55); }, 140); }
 
     var actx = null, sorgAudio = null, giro = 0, voci = {};
+    // (titolare 07/11) «non si sente la voce di Lumi»: col tasto silenzioso iPhone zittisce le pagine web. Con l'audio
+    // «playback» (come musica e navigatori) Lumi si sente sempre. Traccia: Q+ fatto, Q- non c'è su questo telefono, Q! rifiutato.
+    var sessioneQ = "";
+    function sessioneAudio() {
+      if (sessioneQ === "Q+") return;
+      try {
+        if (!navigator.audioSession) { sessioneQ = "Q-"; return; }
+        navigator.audioSession.type = "playback";
+        sessioneQ = navigator.audioSession.type === "playback" ? "Q+" : "Q!";
+      } catch (e) { sessioneQ = "Q!"; }
+    }
     function sbloccaAudio() {
+      sessioneAudio();
       try {
         var C = window.AudioContext || window.webkitAudioContext;
         if (!actx && C) actx = new C();
@@ -645,7 +657,7 @@
     // il tocco sul pulsante Lumi: apre la pagina, accende il microfono e saluta
     btn.addEventListener("click", function () {
       sblocca();
-      diag = []; diagMandata = 0; t0d = Date.now(); dg("T"); dg("P40"); detteN = 0;
+      diag = []; diagMandata = 0; t0d = Date.now(); dg("T"); dg("P42"); dg(sessioneQ); detteN = 0;
       chiesto = false; scrivendo = false; scr.hidden = true; txt.value = ""; bottoni(); usate = {}; ultima = "";
       tu.textContent = ""; det.textContent = ""; pan.hidden = false; btn.hidden = true;
       var v = lumi.segue ? voci.segue : voci.saluto;
