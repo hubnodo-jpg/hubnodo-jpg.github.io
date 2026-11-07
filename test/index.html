@@ -211,7 +211,38 @@
   .asc-bt .si, .asc-scr button { background: #c9ad8b; border-color: #c9ad8b; color: #172024 }
   .asc-bt button[hidden] { display: none }
   .asc-bt.uno { grid-template-columns: 1fr }
+  /* (titolare 07/11) «Come sono andata?»: dopo una conversazione con Lumi, tre facce e le note */
+  .fb { position: fixed; inset: 0; z-index: 6; display: grid; align-items: end; justify-items: center; background: rgba(23, 32, 36, .55);
+    padding: 0 max(12px, env(safe-area-inset-right, 0px)) 0 max(12px, env(safe-area-inset-left, 0px)); animation: fb-velo .2s ease-out }
+  .fb[hidden] { display: none }
+  .fb-card { width: 100%; max-width: 560px; box-sizing: border-box; background: #243237; color: #fafaf7; border-radius: 20px 20px 0 0;
+    padding: 22px 18px calc(18px + env(safe-area-inset-bottom, 0px)); font: 16px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif;
+    box-shadow: 0 -8px 30px rgba(10, 16, 18, .35); animation: asc-entra .28s cubic-bezier(.2, .8, .2, 1) }
+  .fb-testa { display: flex; align-items: center; gap: 12px; margin-bottom: 18px }
+  .fb-sfera { width: 34px; height: 34px; flex: none; border-radius: 50%; box-shadow: 0 0 14px 2px rgba(232, 211, 180, .3);
+    background: radial-gradient(circle at 38% 34%, #fffaf1 0, #f3e2c8 22%, rgba(243, 226, 200, 0) 48%), radial-gradient(circle, #ead4b4 0, #c9ad8b 62%, #9d7f5c 100%) }
+  .fb-tit { margin: 0; font-size: 21px; font-weight: 600; line-height: 1.25 }
+  .fb-sub { margin: 2px 0 0; font-size: 15px; color: #c9c6bd }
+  .fb-facce { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px }
+  .fb-facce button { min-height: 82px; border-radius: 14px; border: 1px solid rgba(250, 250, 247, .2); background: rgba(250, 250, 247, .04); color: #c9c6bd;
+    display: grid; justify-items: center; align-content: center; gap: 6px; font: 600 15px system-ui, -apple-system, sans-serif; cursor: pointer;
+    -webkit-tap-highlight-color: transparent; transition: background .15s, border-color .15s, color .15s }
+  .fb-facce svg { width: 30px; height: 30px }
+  .fb-facce button[aria-pressed="true"] { background: rgba(201, 173, 139, .18); border-color: #c9ad8b; color: #fafaf7 }
+  .fb-facce button[aria-pressed="true"] svg { color: #e8d3b4 }
+  .fb textarea { display: block; width: 100%; box-sizing: border-box; min-height: 76px; resize: none; border-radius: 12px; border: 1px solid rgba(250, 250, 247, .25);
+    background: rgba(250, 250, 247, .06); color: #fafaf7; font: 17px/1.4 system-ui, -apple-system, sans-serif; padding: 10px 12px; margin-bottom: 12px }
+  .fb textarea::placeholder { color: #9c9a93 }
+  .fb-bt { display: grid; grid-template-columns: 1fr 1fr; gap: 8px }
+  .fb-bt button { min-height: 50px; border-radius: 12px; border: 1px solid rgba(250, 250, 247, .25); background: none; color: #fafaf7; font: 600 16px system-ui, -apple-system, sans-serif; cursor: pointer }
+  .fb-bt .si { background: #c9ad8b; border-color: #c9ad8b; color: #172024 }
+  .fb-bt .si:disabled { opacity: .45; cursor: default }
+  .fb button:focus-visible, .fb textarea:focus-visible { outline: 2px solid #e8d3b4; outline-offset: 2px }
+  .fb-grazie { margin: 6px 0 4px; font-size: 19px; font-weight: 600; text-align: center }
+  .fb-grazie[hidden], .fb-corpo[hidden] { display: none }
+  @keyframes fb-velo { from { opacity: 0 } }
   @media (prefers-reduced-motion: reduce) {
+    .fb, .fb-card { animation: none }
     .asc, .lumi-btn i::before, .asc-orb i { animation: none !important }
     .asc.sente .asc-orb .onda, .asc.parla .asc-orb .onda { opacity: .45 }
     .asc.pensa .asc-orb .alone { opacity: .7 }
@@ -232,6 +263,22 @@
     <form class="asc-scr" id="ascScr" hidden><label for="ascTxt" style="position:absolute;left:-9999px">Scrivi a Lumi</label>
       <textarea id="ascTxt" maxlength="1500" placeholder="Es. cosa resta da fare oggi? Oppure: ritiro da Murolo venerdì mattina"></textarea><button type="submit">Invia</button></form>
     <div class="asc-bt" id="ascBt"><button type="button" id="ascScrivi">Scrivi</button><button type="button" class="si" id="ascFine">Ho finito</button></div>
+  </div>
+</div>
+<div class="fb" id="lumiFb" role="dialog" aria-modal="true" aria-labelledby="fbTit" hidden>
+  <div class="fb-card">
+    <div class="fb-testa"><i class="fb-sfera" aria-hidden="true"></i><div><p class="fb-tit" id="fbTit">Come sono andata?</p><p class="fb-sub">Per me è importante, così imparo.</p></div></div>
+    <div class="fb-corpo" id="fbCorpo">
+      <div class="fb-facce" role="group" aria-label="Come sono andata">
+        <button type="button" data-voto="bene" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="9" cy="10" r=".9" fill="currentColor" stroke="none"/><circle cx="15" cy="10" r=".9" fill="currentColor" stroke="none"/><path d="M8.5 14.2c.9 1.3 2.1 2 3.5 2s2.6-.7 3.5-2"/></svg>Bene</button>
+        <button type="button" data-voto="cosi" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="9" cy="10" r=".9" fill="currentColor" stroke="none"/><circle cx="15" cy="10" r=".9" fill="currentColor" stroke="none"/><path d="M8.8 15h6.4"/></svg>Così così</button>
+        <button type="button" data-voto="male" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="9" cy="10" r=".9" fill="currentColor" stroke="none"/><circle cx="15" cy="10" r=".9" fill="currentColor" stroke="none"/><path d="M8.5 16.4c.9-1.3 2.1-2 3.5-2s2.6.7 3.5 2"/></svg>Male</button>
+      </div>
+      <label for="fbNote" style="position:absolute;left:-9999px">Note per Lumi</label>
+      <textarea id="fbNote" maxlength="2000" placeholder="Cosa non è andato bene? Scrivimelo qui (facoltativo)"></textarea>
+      <div class="fb-bt"><button type="button" id="fbNo">Non ora</button><button type="button" class="si" id="fbInvia" disabled>Invia</button></div>
+    </div>
+    <p class="fb-grazie" id="fbGrazie" role="status" hidden>Grazie, ne terrò conto.</p>
   </div>
 </div>
 <script>
@@ -258,6 +305,30 @@
     // iPhone/iPad: il microfono parte solo da un tocco su questa pagina, mai da solo
     var iOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
     var manda = function (m) { try { if (sorg) sorg.postMessage(m, orig); } catch (e) {} };
+    // (titolare 07/11) «Come sono andata?»: ogni volta che si chiude Lumi dopo averle detto almeno una cosa; si può saltare.
+    // Voto, note e traccia vanno a NODO («lumi-feedback»), che aggiunge la conversazione e scrive nel foglio «Lumi feedback».
+    var detteN = 0, fbVoto = "", fb = $("lumiFb"), fbNote = $("fbNote"), fbInvia = $("fbInvia"), fbFacce = fb.querySelectorAll("[data-voto]");
+    function fbStato() { fbInvia.disabled = !fbVoto && !fbNote.value.trim(); }
+    function fbApri() {
+      fbVoto = ""; fbNote.value = "";
+      for (var i = 0; i < fbFacce.length; i++) fbFacce[i].setAttribute("aria-pressed", "false");
+      $("fbCorpo").hidden = false; $("fbGrazie").hidden = true; fbStato(); fb.hidden = false;
+    }
+    function fbChiudi() { fb.hidden = true; }
+    for (var fi = 0; fi < fbFacce.length; fi++) fbFacce[fi].addEventListener("click", function () {
+      fbVoto = this.getAttribute("data-voto");
+      for (var i = 0; i < fbFacce.length; i++) fbFacce[i].setAttribute("aria-pressed", fbFacce[i] === this ? "true" : "false");
+      fbStato();
+    });
+    fbNote.addEventListener("input", fbStato);
+    $("fbNo").addEventListener("click", fbChiudi);
+    fb.addEventListener("click", function (e) { if (e.target === fb) fbChiudi(); });
+    fbInvia.addEventListener("click", function () {
+      if (fbInvia.disabled) return;
+      manda({ nodo: "lumi-feedback", voto: fbVoto, note: fbNote.value.trim().slice(0, 2000), traccia: diag.join(" ").slice(0, 1200) });
+      $("fbCorpo").hidden = true; $("fbGrazie").hidden = false;
+      setTimeout(fbChiudi, 1400);
+    });
     function aspetto(c, s) {
       pan.className = "asc" + (c ? " " + c : "") + (det.textContent ? " con-det" : ""); if (s !== undefined) stato.textContent = s;
       if (c === "fermo") lasciaSpegnere(60000); else tieniAcceso();
@@ -415,12 +486,14 @@
       fineConv(); zitta(); pan.hidden = true; scrivendo = false; scr.hidden = true;
       if (m) manda(m);
       posiziona();
+      if (detteN) { detteN = 0; fbApri(); }
     }
     function annulla() {
       if (chiesto) { chiesto = false; chiudi({ nodo: "sentito", id: richiesta, annullato: true }); } else chiudi();
     }
     // il testo va a NODO: come risposta a una sua domanda, oppure come messaggio per Lumi
     function aNodo(t) {
+      detteN++;
       if (chiesto) { chiesto = false; manda({ nodo: "sentito", id: richiesta, testo: t }); }
       else { manda({ nodo: "lumi-testo", testo: t }); attesa(t); }
       det.textContent = "";
@@ -554,7 +627,7 @@
     // il tocco sul pulsante Lumi: apre la pagina, accende il microfono e saluta
     btn.addEventListener("click", function () {
       sblocca();
-      diag = []; diagMandata = 0; t0d = Date.now(); dg("T");
+      diag = []; diagMandata = 0; t0d = Date.now(); dg("T"); detteN = 0;
       chiesto = false; scrivendo = false; scr.hidden = true; txt.value = ""; bottoni(); usate = {}; ultima = "";
       tu.textContent = ""; det.textContent = ""; pan.hidden = false; btn.hidden = true;
       var v = lumi.segue ? voci.segue : voci.saluto;
