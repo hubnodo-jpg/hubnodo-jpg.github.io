@@ -344,7 +344,7 @@
       fermaAttesa();
       if (!actx || BREVE.test(String(t || "").trim())) return;
       var f = famiglia(t);
-      riemp.t.push(setTimeout(function () { riempi(scegli(f, "a_gen")); }, 1700));
+      riemp.t.push(setTimeout(function () { riempi(scegli(f, "a_gen")); }, 600));        // risponde subito, come una collega (07/11)
       riemp.t.push(setTimeout(function () { riempi(scegli("q_gen")); }, 8000));
       riemp.t.push(setTimeout(function () { riempi(scegli("q_gen")); }, 16000));
     }
@@ -404,7 +404,7 @@
         t = (prima + " " + t).replace(/\s+/g, " ").trim();
         if (!t || t === sentito) return;
         sentito = t; tu.textContent = t; aspetto("sente"); spinta(.55); clearTimeout(tNiente); riavvii = 0;
-        clearTimeout(tSil); tSil = setTimeout(fineFrase, 2500);           // una pausa di 2,5 s dopo aver parlato = «ho finito»
+        clearTimeout(tSil); tSil = setTimeout(fineFrase, 1500);           // una pausa di 1,5 s dopo aver parlato = «ho finito» (titolare 07/11)
       };
       r.onerror = function (e) { if (rec === r) errore = e.error || "errore"; };
       r.onstart = r.onaudiostart = function () { clearTimeout(tPronto); };
