@@ -242,7 +242,17 @@
     // Conversazione: dopo il tocco il microfono resta aperto per tutta la conversazione. Mentre NODO lavora e mentre
     // Lumi parla è «muto» (quello che sente non conta); dopo la risposta torna ad ascoltare da solo, senza tocchi.
     var conv = false, muto = false, fermo = false, vecchie = [], ultime = [], prima = "", riavvii = 0, tAttesa = null, tVoce = null;
-    var lumi = { nome: "", segue: false }, scrivendo = false;
+    var lumi = { nome: "", segue: false }, scrivendo = false, avvioN = 0, tAvvio = null;
+    // traccia del microfono (titolare 07/11 «non mi ascolta»): secondi dal tocco + evento; va nel Registro di NODO («Lumi ascolto»).
+    // T tocco Lumi, C tocco cerchio, S/S+ avvio (+ = senza tocco), s partito, a audio, r/rm prima frase sentita (m = mentre era muto),
+    // e: errore, x chiuso, G/g saluto, L ascolta, A riapre da sola, A? non è partito, F frase a NODO
+    var diag = [], t0d = Date.now(), diagMandata = 0;
+    function dg(x) { if (diag.length < 80) diag.push(((Date.now() - t0d) / 1000).toFixed(1) + x); }
+    function inviaDiag(perche) {
+      if (!diag.length || diag.length === diagMandata) return;
+      diagMandata = diag.length;
+      manda({ nodo: "lumi-diag", t: perche + (iOS ? " iOS" : "") + " | " + diag.join(" ") });
+    }
     // iPhone/iPad: il microfono parte solo da un tocco su questa pagina, mai da solo
     var iOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
     var manda = function (m) { try { if (sorg) sorg.postMessage(m, orig); } catch (e) {} };
@@ -307,7 +317,7 @@
     // la voce di una frase fissa con lo stesso testo (per i messaggi che arrivano senza voce)
     function vocePer(t) { for (var k in voci) if (voci[k].testo === t) return voci[k].audio; return ""; }
     function zitta() {
-      giro++; clearTimeout(tVoce); finto(false); analisi = null; fermaAttesa(); riemp.suona = false; riemp.poi = null;
+      giro++; avvioN++; clearTimeout(tAvvio); clearTimeout(tVoce); finto(false); analisi = null; fermaAttesa(); riemp.suona = false; riemp.poi = null;
       if (sorgAudio) { try { sorgAudio.onended = null; sorgAudio.stop(); } catch (e) {} sorgAudio = null; }
     }
 
@@ -373,6 +383,7 @@
       var r = rec; rec = null; if (r) { try { r.abort(); } catch (e) {} }
     }
     function chiudi(m) {
+      inviaDiag("chiusa");
       fineConv(); zitta(); pan.hidden = true; scrivendo = false; scr.hidden = true;
       if (m) manda(m);
       posiziona();
@@ -391,14 +402,16 @@
     }
 
     // un riconoscimento vocale nuovo; tiene a parte quello che aveva già sentito (vecchie) e lo ignora
-    function avvia() {
+    function avvia(auto) {
       var r = new SR(); r.lang = "it-IT"; r.continuous = true; r.interimResults = true; r.maxAlternatives = 1;
+      r.auto = !!auto; r.ok = false;
       vecchie = []; ultime = []; prima = muto ? "" : sentito; fermo = false;
       r.onresult = function (e) {
         if (rec !== r) return;
         var cur = []; for (var i = 0; i < e.results.length; i++) cur.push(e.results[i][0].transcript);
         ultime = cur;
-        if (muto) return;
+        if (muto) { if (!r.dm) { r.dm = 1; dg("rm"); } return; }
+        if (!r.dr) { r.dr = 1; dg("r"); }
         var t = "";
         cur.forEach(function (c, i) { var o = vecchie[i] || "", k = 0; while (k < o.length && k < c.length && o[k] === c[k]) k++; t += c.slice(k) + " "; });
         t = (prima + " " + t).replace(/\s+/g, " ").trim();
@@ -406,9 +419,11 @@
         sentito = t; tu.textContent = t; aspetto("sente"); spinta(.55); clearTimeout(tNiente); riavvii = 0;
         clearTimeout(tSil); tSil = setTimeout(fineFrase, 1500);           // una pausa di 1,5 s dopo aver parlato = «ho finito» (titolare 07/11)
       };
-      r.onerror = function (e) { if (rec === r) errore = e.error || "errore"; };
-      r.onstart = r.onaudiostart = function () { clearTimeout(tPronto); };
-      r.onend = function () { if (rec === r) finito(); };
+      r.onerror = function (e) { dg("e:" + (e.error || "?")); if (rec === r) errore = e.error || "errore"; };
+      r.onstart = function () { r.ok = true; dg("s"); clearTimeout(tPronto); };
+      r.onaudiostart = function () { r.ok = true; dg("a"); clearTimeout(tPronto); };
+      r.onend = function () { dg("x"); if (rec === r) finito(); };
+      dg(auto ? "S+" : "S");
       r.start();
       return r;
     }
@@ -427,18 +442,35 @@
     // da qui in poi quello che si dice conta
     function inAscolto() {
       if (scrivendo) { aspetto("fermo", ""); return; }
-      if (!(conv && rec)) { aspetto("fermo", iOS ? "Tocca il cerchio e parla" : ""); if (!iOS) accendi(false); return; }
+      if (!(conv && rec)) {
+        if (iOS && SR && !pan.hidden) { riapri(); return; }
+        dg("L-"); aspetto("fermo", iOS ? "Tocca il cerchio e parla" : ""); if (!iOS) accendi(false); return;
+      }
+      dg("L");
       vecchie = ultime.slice(); prima = ""; sentito = ""; errore = ""; riavvii = 0; muto = false; tu.textContent = "";
       aspetto("ascolta", "Ti ascolto…");
-      clearTimeout(tNiente); tNiente = setTimeout(function () { fineConv(); aspetto("fermo", "Tocca il cerchio quando vuoi parlare"); }, 20000);
+      clearTimeout(tNiente); tNiente = setTimeout(function () { inviaDiag("silenzio"); fineConv(); aspetto("fermo", "Tocca il cerchio quando vuoi parlare"); }, 20000);
       clearTimeout(tMax); tMax = setTimeout(ferma, 90000);
+    }
+    // iPhone ha chiuso il microfono mentre parlava Lumi: proviamo a riaprirlo senza tocco. Se iPhone non lo permette (non parte
+    // entro 1,5 s) chiediamo il tocco sul cerchio, come prima.
+    function riapri() {
+      sentito = ""; errore = ""; riavvii = 0; muto = false; conv = true; dg("A");
+      var r;
+      try { r = rec = avvia(true); } catch (e) { dg("A!"); rec = null; conv = false; aspetto("fermo", "Tocca il cerchio e parla"); inviaDiag("riapri"); return; }
+      clearTimeout(tPronto);
+      tPronto = setTimeout(function () {
+        if (rec !== r || r.ok) return;
+        dg("A?"); fineConv(); aspetto("fermo", "Tocca il cerchio e parla"); inviaDiag("riapri");
+      }, 1500);
+      inAscolto();
     }
     // l'utente ha smesso di parlare: il testo va a NODO e il microfono resta aperto (muto) per la risposta
     function fineFrase() {
       var t = sentito.trim();
       if (!t) return;
       clearTimeout(tSil); clearTimeout(tMax); clearTimeout(tNiente);
-      muto = true; sentito = "";
+      muto = true; sentito = ""; dg("F");
       if (!rec) conv = false;
       aNodo(t);
     }
@@ -461,12 +493,14 @@
       // il telefono ha chiuso il microfono da solo in mezzo alla conversazione: proviamo a riaprirlo
       if (conv && rec && !fermo && errore !== "not-allowed" && errore !== "service-not-allowed" && riavvii < 4) {
         riavvii++;
-        try { rec = avvia(); return; } catch (e) {}
+        try { rec = avvia(true); return; } catch (e) { dg("R!"); }
       }
-      var t = muto ? "" : sentito.trim(), err = errore, aspetta = muto;
+      var t = muto ? "" : sentito.trim(), err = errore, aspetta = muto, rifiuto = !!(rec && rec.auto && !rec.ok);
       fineConv();
-      if (aspetta) return;                                  // NODO sta lavorando: alla risposta si toccherà il cerchio
+      if (aspetta) return;                                  // NODO sta lavorando o Lumi parla: alla fine si riapre (riapri)
       if (t) { aNodo(t); return; }
+      if (rifiuto) { aspetto("fermo", "Tocca il cerchio e parla"); inviaDiag("riavvio"); return; }
+      inviaDiag(err ? "errore " + err : "niente");
       if (err === "not-allowed" || err === "service-not-allowed") { scrivi("Il microfono non è permesso: consentilo nelle impostazioni del telefono. Intanto scrivi qui."); return; }
       aspetto("fermo", "Non ho sentito niente: tocca il cerchio e parla");
     }
@@ -481,18 +515,29 @@
     // il tocco sul pulsante Lumi: apre la pagina, accende il microfono e saluta
     btn.addEventListener("click", function () {
       sblocca();
+      diag = []; diagMandata = 0; t0d = Date.now(); dg("T");
       chiesto = false; scrivendo = false; scr.hidden = true; txt.value = ""; bottoni(); usate = {}; ultima = "";
       tu.textContent = ""; det.textContent = ""; pan.hidden = false; btn.hidden = true;
       var v = lumi.segue ? voci.segue : voci.saluto;
       // senza la sua voce Lumi non parte (titolare 07/11): lo diciamo e chiediamo di nuovo le voci a NODO
       if (!haVoce()) { dom.textContent = ""; senzaVoce(); manda({ nodo: "lumi-voci?" }); return; }
       manda({ nodo: "lumi-via" });
-      if (accendi(true)) dice(v.testo, "", inAscolto, v.audio);
-      else dom.textContent = v.testo;
+      if (!accendi(true)) { dom.textContent = v.testo; return; }
+      // (titolare 07/11) iPhone fa un bip quando si accende il microfono: Lumi aspetta 2,5 s e poi saluta, così non si
+      // sovrappongono. Quello che NODO manda nel frattempo (il riassunto del mattino) aspetta la fine del saluto.
+      var n = ++avvioN;
+      dom.textContent = ""; aspetto("pensa", "");
+      riemp.suona = true;
+      clearTimeout(tAvvio);
+      tAvvio = setTimeout(function () {
+        if (n !== avvioN || pan.hidden || scrivendo) return;
+        dg("G");
+        dice(v.testo, "", function () { dg("g"); var f = riemp.poi; riemp.suona = false; riemp.poi = null; if (f) f(); else inAscolto(); }, v.audio);
+      }, 2500);
     });
     // il cerchio: se è fermo riaccende il microfono, se sta ascoltando vuol dire «ho finito»
     mic.addEventListener("click", function () {
-      sblocca();
+      sblocca(); dg("C");
       if (rec && muto) return;                              // sta parlando Lumi o NODO sta lavorando: un attimo
       if (rec) { ferma(); return; }
       if (!haVoce()) { senzaVoce(); manda({ nodo: "lumi-voci?" }); return; }
