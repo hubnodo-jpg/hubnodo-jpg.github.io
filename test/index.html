@@ -258,7 +258,33 @@
     // iPhone/iPad: il microfono parte solo da un tocco su questa pagina, mai da solo
     var iOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
     var manda = function (m) { try { if (sorg) sorg.postMessage(m, orig); } catch (e) {} };
-    function aspetto(c, s) { pan.className = "asc" + (c ? " " + c : "") + (det.textContent ? " con-det" : ""); if (s !== undefined) stato.textContent = s; }
+    function aspetto(c, s) {
+      pan.className = "asc" + (c ? " " + c : "") + (det.textContent ? " con-det" : ""); if (s !== undefined) stato.textContent = s;
+      if (c === "fermo") lasciaSpegnere(60000); else tieniAcceso();
+    }
+    // (titolare 07/11) «quando parlo con Lumi il telefono si blocca»: finché Lumi lavora lo schermo resta acceso (Wake Lock, come i
+    // navigatori). 60 s dopo che la conversazione si è fermata, o quando si chiude Lumi, il telefono torna a spegnersi da solo.
+    var sveglia = null, tSveglia = null, chiedeSveglia = false, svegliaNo = false, svegliaKo = false;   // Ko: rifiutato, si riprova al prossimo tocco
+    function tieniAcceso() {
+      clearTimeout(tSveglia);
+      if (sveglia || chiedeSveglia || svegliaKo || pan.hidden || document.visibilityState !== "visible") return;
+      if (!navigator.wakeLock) { if (!svegliaNo) { svegliaNo = true; dg("W-"); } return; }
+      chiedeSveglia = true;
+      navigator.wakeLock.request("screen").then(function (w) {
+        chiedeSveglia = false;
+        if (pan.hidden) { w.release().catch(function () {}); return; }
+        sveglia = w; dg("W+");
+        w.addEventListener("release", function () { if (sveglia === w) sveglia = null; });
+      }, function () { chiedeSveglia = false; svegliaKo = true; dg("W!"); });
+    }
+    function lasciaSpegnere(dopo) {
+      clearTimeout(tSveglia);
+      tSveglia = setTimeout(function () { var w = sveglia; sveglia = null; if (w) w.release().catch(function () {}); }, dopo || 0);
+    }
+    // tornando su NODO (iPhone toglie il blocco quando la pagina va in secondo piano) lo si richiede, se Lumi sta lavorando
+    document.addEventListener("visibilitychange", function () {
+      if (document.visibilityState === "visible" && !pan.hidden && !/ fermo( |$)/.test(pan.className)) tieniAcceso();
+    });
     function bottoni() { bScrivi.hidden = scrivendo; bt.classList.toggle("uno", scrivendo); bFine.textContent = scrivendo ? "Chiudi" : "Ho finito"; }
 
     // volume della voce → sfera (--liv): lo misura l'analizzatore
@@ -385,7 +411,7 @@
       var r = rec; rec = null; if (r) { try { r.abort(); } catch (e) {} }
     }
     function chiudi(m) {
-      inviaDiag("chiusa"); avviso = null;
+      inviaDiag("chiusa"); avviso = null; lasciaSpegnere(0);
       fineConv(); zitta(); pan.hidden = true; scrivendo = false; scr.hidden = true;
       if (m) manda(m);
       posiziona();
@@ -523,7 +549,7 @@
       scr.hidden = false; bottoni(); aspetto("fermo", msg || "");
       setTimeout(function () { try { txt.focus(); } catch (e) {} }, 50);
     }
-    function sblocca() { sbloccaAudio(); }
+    function sblocca() { sbloccaAudio(); svegliaKo = false; }
 
     // il tocco sul pulsante Lumi: apre la pagina, accende il microfono e saluta
     btn.addEventListener("click", function () {
