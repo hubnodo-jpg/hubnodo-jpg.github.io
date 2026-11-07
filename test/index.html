@@ -336,21 +336,39 @@
     // (titolare 07/11) «quando parlo con Lumi il telefono si blocca»: finché Lumi lavora lo schermo resta acceso (Wake Lock, come i
     // navigatori). 60 s dopo che la conversazione si è fermata, o quando si chiude Lumi, il telefono torna a spegnersi da solo.
     var sveglia = null, tSveglia = null, chiedeSveglia = false, svegliaNo = false, svegliaKo = false;   // Ko: rifiutato, si riprova al prossimo tocco
+    // (titolare 07/11, v40) «il telefono continua a bloccarsi»: se iPhone non dà il blocco schermo (manca, lo rifiuta o non risponde
+    // in 3 s) lo teniamo acceso con un video muto di 2 s in loop, come fanno i navigatori sul web. W? chiesto, W~ nessuna risposta,
+    // Z+ video partito, Z! video rifiutato.
+    var video = null, conVideo = false;
+    function videoAcceso() {
+      if (!video) {
+        video = document.createElement("video");
+        video.setAttribute("playsinline", ""); video.setAttribute("muted", ""); video.setAttribute("aria-hidden", "true");
+        video.muted = true; video.loop = true;
+        video.style.cssText = "position:fixed;left:0;top:0;width:2px;height:2px;opacity:.01;pointer-events:none";
+        video.src = "data:video/mp4;base64,AAAAHGZ0eXBtcDQyAAAAAWlzb21tcDQxbXA0MgAAAAFtZGF0AAAAAAAAAKEAAAAeBgUaR1ZK3FxMQz+U78URPNFDqAH/zMz/AgAAB9CAAAAAJiW4IACD/x67v/70wYBE1CeG1bepiPbqe3D8suYhjOIAAPYEWnhwAAAAEiHhDEPf8BYm9+2wMf3T+Yn/qgAAABQhqIKEOf/15VkCygMmZ8uKqeYYgAAAABMBqMGIe//2dabdsDFuBjc0dleYAAADAm1vb3YAAABsbXZoZAAAAADnFNdZ5xTXWgAAAlgAAASwAAEAAAEAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAAAKOdHJhawAAAFx0a2hkAAAAAecU11nnFNdaAAAAAQAAAAAAAASwAAAAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAQAAAAAAQAAAAEAAAAAAAJGVkdHMAAAAcZWxzdAAAAAAAAAABAAAEsAAAAlgAAQAAAAACBm1kaWEAAAAgbWRoZAAAAADnFNdZ5xTXWgAAAlgAAASwVcQAAAAAADFoZGxyAAAAAAAAAAB2aWRlAAAAAAAAAAAAAAAAQ29yZSBNZWRpYSBWaWRlbwAAAAGtbWluZgAAABR2bWhkAAAAAQAAAAAAAAAAAAAAJGRpbmYAAAAcZHJlZgAAAAAAAAABAAAADHVybCAAAAABAAABbXN0YmwAAAChc3RzZAAAAAAAAAABAAAAkWF2YzEAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAEAAQAEgAAABIAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAY//8AAAAnYXZjQwFkAAv/4QAMJ2QAC6xWUMN4FmClAQAEKO48sP34+AAAAAAKZmllbAEAAAAACmNocm0AAAAAABhzdHRzAAAAAAAAAAEAAAAEAAABLAAAADBjdHRzAAAAAAAAAAQAAAABAAACWAAAAAEAAASwAAAAAQAAAlgAAAABAAAAAAAAABRzdHNzAAAAAAAAAAEAAAABAAAAEHNkdHAAAAAAIBAQGAAAABxzdHNjAAAAAAAAAAEAAAABAAAAAgAAAAEAAAAkc3RzegAAAAAAAAAAAAAABAAAAEwAAAAWAAAAGAAAABcAAAAYc3RjbwAAAAAAAAACAAAALAAAAI4=";
+        document.body.appendChild(video);
+      }
+      if (video.paused) video.play().then(function () { dg("Z+"); }, function () { dg("Z!"); });
+    }
     function tieniAcceso() {
       clearTimeout(tSveglia);
-      if (sveglia || chiedeSveglia || svegliaKo || pan.hidden || document.visibilityState !== "visible") return;
-      if (!navigator.wakeLock) { if (!svegliaNo) { svegliaNo = true; dg("W-"); } return; }
-      chiedeSveglia = true;
+      if (pan.hidden || document.visibilityState !== "visible") return;
+      if (conVideo) { videoAcceso(); return; }
+      if (sveglia || chiedeSveglia || svegliaKo) return;
+      if (!navigator.wakeLock) { if (!svegliaNo) { svegliaNo = true; dg("W-"); } conVideo = true; videoAcceso(); return; }
+      chiedeSveglia = true; dg("W?");
+      var fatto = false, tChiede = setTimeout(function () { if (!fatto) { dg("W~"); conVideo = true; videoAcceso(); } }, 3000);
       navigator.wakeLock.request("screen").then(function (w) {
-        chiedeSveglia = false;
+        fatto = true; clearTimeout(tChiede); chiedeSveglia = false;
         if (pan.hidden) { w.release().catch(function () {}); return; }
         sveglia = w; dg("W+");
         w.addEventListener("release", function () { if (sveglia === w) sveglia = null; });
-      }, function () { chiedeSveglia = false; svegliaKo = true; dg("W!"); });
+      }, function () { fatto = true; clearTimeout(tChiede); chiedeSveglia = false; svegliaKo = true; dg("W!"); conVideo = true; videoAcceso(); });
     }
     function lasciaSpegnere(dopo) {
       clearTimeout(tSveglia);
-      tSveglia = setTimeout(function () { var w = sveglia; sveglia = null; if (w) w.release().catch(function () {}); }, dopo || 0);
+      tSveglia = setTimeout(function () { var w = sveglia; sveglia = null; if (w) w.release().catch(function () {}); if (video && !video.paused) video.pause(); }, dopo || 0);
     }
     // tornando su NODO (iPhone toglie il blocco quando la pagina va in secondo piano) lo si richiede, se Lumi sta lavorando
     document.addEventListener("visibilitychange", function () {
@@ -622,12 +640,12 @@
       scr.hidden = false; bottoni(); aspetto("fermo", msg || "");
       setTimeout(function () { try { txt.focus(); } catch (e) {} }, 50);
     }
-    function sblocca() { sbloccaAudio(); svegliaKo = false; }
+    function sblocca() { sbloccaAudio(); svegliaKo = false; if (conVideo) videoAcceso(); }
 
     // il tocco sul pulsante Lumi: apre la pagina, accende il microfono e saluta
     btn.addEventListener("click", function () {
       sblocca();
-      diag = []; diagMandata = 0; t0d = Date.now(); dg("T"); detteN = 0;
+      diag = []; diagMandata = 0; t0d = Date.now(); dg("T"); dg("P40"); detteN = 0;
       chiesto = false; scrivendo = false; scr.hidden = true; txt.value = ""; bottoni(); usate = {}; ultima = "";
       tu.textContent = ""; det.textContent = ""; pan.hidden = false; btn.hidden = true;
       var v = lumi.segue ? voci.segue : voci.saluto;
