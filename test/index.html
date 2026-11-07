@@ -445,7 +445,7 @@
         t = (prima + " " + t).replace(/\s+/g, " ").trim();
         if (!t || t === sentito) return;
         sentito = t; tu.textContent = t; aspetto("sente"); spinta(.55); clearTimeout(tNiente); riavvii = 0;
-        clearTimeout(tSil); tSil = setTimeout(fineFrase, 1500);           // una pausa di 1,5 s dopo aver parlato = «ho finito» (titolare 07/11)
+        clearTimeout(tSil); tSil = setTimeout(fineFrase, 2500);           // una pausa di 2,5 s dopo aver parlato = «ho finito» (titolare 07/11: 1,5 s lo interrompeva)
       };
       r.onerror = function (e) { dg("e:" + (e.error || "?")); if (rec === r) errore = e.error || "errore"; };
       r.onstart = function () { r.ok = true; dg("s"); clearTimeout(tPronto); };
