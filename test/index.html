@@ -586,6 +586,15 @@
     }
     // (titolare 07/11) l'avviso di NODO (dove ha messo il lavoro appena inserito) parte solo quando Lumi ascolta e nessuno sta
     // parlando, o la conversazione è ferma; se no aspetta la prossima volta che Lumi torna ad ascoltare
+    // (titolare 08/11) dopo «… Aggiungi altro?»: se in pz millisecondi nessuno parla, NODO salva (lumi-pausa). Traccia: Pz
+    var tPausa = null;
+    function pausa(pz) {
+      clearTimeout(tPausa);
+      tPausa = setTimeout(function () {
+        if (pan.hidden || sentito || / (sente|pensa|parla)( |$)/.test(pan.className)) return;
+        dg("Pz"); manda({ nodo: "lumi-pausa" });
+      }, pz);
+    }
     function provaAvviso() {
       if (!avviso || pan.hidden || scrivendo || riemp.suona || sentito) return;
       if (!/ (ascolta|fermo)( |$)/.test(pan.className)) return;
@@ -657,7 +666,7 @@
     // il tocco sul pulsante Lumi: apre la pagina, accende il microfono e saluta
     btn.addEventListener("click", function () {
       sblocca();
-      diag = []; diagMandata = 0; t0d = Date.now(); dg("T"); dg("P42"); dg(sessioneQ); detteN = 0;
+      diag = []; diagMandata = 0; t0d = Date.now(); dg("T"); dg("P43"); dg(sessioneQ); detteN = 0;
       chiesto = false; scrivendo = false; scr.hidden = true; txt.value = ""; bottoni(); usate = {}; ultima = "";
       tu.textContent = ""; det.textContent = ""; pan.hidden = false; btn.hidden = true;
       var v = lumi.segue ? voci.segue : voci.saluto;
@@ -747,7 +756,8 @@
         }
         if (d.fine) { fineConv(); dopoAttesa(function () { dice(testo, "", function () { chiudi(); }, au || vocePer(testo)); }); return; }
         if (rec) muto = true;
-        dopoAttesa(function () { dice(testo, dt, inAscolto, au); });
+        var pz = Math.min(Number(d.pausa) || 0, 15000);
+        dopoAttesa(function () { dice(testo, dt, function () { inAscolto(); if (pz) pausa(pz); }, au); });
         return;
       }
       // (titolare 07/11) dove NODO ha messo il lavoro appena inserito: Lumi lo dice appena può, senza interrompere chi parla
