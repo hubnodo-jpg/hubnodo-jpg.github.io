@@ -244,7 +244,7 @@
     // Conversazione: dopo il tocco il microfono resta aperto per tutta la conversazione. Mentre NODO lavora e mentre
     // Lumi parla è «muto» (quello che sente non conta); dopo la risposta torna ad ascoltare da solo, senza tocchi.
     var conv = false, muto = false, fermo = false, vecchie = [], ultime = [], prima = "", riavvii = 0, tAttesa = null, tVoce = null;
-    var lumi = { nome: "", segue: false }, scrivendo = false, avvioN = 0, tAvvio = null;
+    var lumi = { nome: "", segue: false }, scrivendo = false, avvioN = 0, tAvvio = null, avviso = null;
     // traccia del microfono (titolare 07/11 «non mi ascolta»): secondi dal tocco + evento; va nel Registro di NODO («Lumi ascolto»).
     // T tocco Lumi, C tocco cerchio, S/S+ avvio (+ = senza tocco), s partito, a audio, r/rm prima frase sentita (m = mentre era muto),
     // e: errore, x chiuso, G/g saluto, L ascolta, A riapre da sola, A? non è partito, F frase a NODO
@@ -385,7 +385,7 @@
       var r = rec; rec = null; if (r) { try { r.abort(); } catch (e) {} }
     }
     function chiudi(m) {
-      inviaDiag("chiusa");
+      inviaDiag("chiusa"); avviso = null;
       fineConv(); zitta(); pan.hidden = true; scrivendo = false; scr.hidden = true;
       if (m) manda(m);
       posiziona();
@@ -451,8 +451,19 @@
       dg("L");
       vecchie = ultime.slice(); prima = ""; sentito = ""; errore = ""; riavvii = 0; muto = false; tu.textContent = "";
       aspetto("ascolta", "Ti ascolto…");
-      clearTimeout(tNiente); tNiente = setTimeout(function () { inviaDiag("silenzio"); fineConv(); aspetto("fermo", "Tocca il cerchio quando vuoi parlare"); }, 20000);
+      clearTimeout(tNiente); tNiente = setTimeout(function () { inviaDiag("silenzio"); fineConv(); aspetto("fermo", "Tocca il cerchio quando vuoi parlare"); provaAvviso(); }, 20000);
       clearTimeout(tMax); tMax = setTimeout(ferma, 90000);
+      provaAvviso();
+    }
+    // (titolare 07/11) l'avviso di NODO (dove ha messo il lavoro appena inserito) parte solo quando Lumi ascolta e nessuno sta
+    // parlando, o la conversazione è ferma; se no aspetta la prossima volta che Lumi torna ad ascoltare
+    function provaAvviso() {
+      if (!avviso || pan.hidden || scrivendo || riemp.suona || sentito) return;
+      if (!/ (ascolta|fermo)( |$)/.test(pan.className)) return;
+      var a = avviso; avviso = null; dg("V");
+      if (rec) muto = true;
+      clearTimeout(tNiente);
+      dice(a.testo, "", inAscolto, a.audio);
     }
     // iPhone ha chiuso il microfono mentre parlava Lumi: proviamo a riaprirlo senza tocco. Se iPhone non lo permette (non parte
     // entro 1,5 s) chiediamo il tocco sul cerchio, come prima.
@@ -608,6 +619,14 @@
         if (d.fine) { fineConv(); dopoAttesa(function () { dice(testo, "", function () { chiudi(); }, au || vocePer(testo)); }); return; }
         if (rec) muto = true;
         dopoAttesa(function () { dice(testo, dt, inAscolto, au); });
+        return;
+      }
+      // (titolare 07/11) dove NODO ha messo il lavoro appena inserito: Lumi lo dice appena può, senza interrompere chi parla
+      if (d.nodo === "lumi-avviso") {
+        var av = typeof d.voce === "string" && d.voce.length < 8000000 ? d.voce : "";
+        if (pan.hidden || !av) return;
+        avviso = { testo: String(d.testo || "").slice(0, 600), audio: av };
+        provaAvviso();
         return;
       }
       // NODO non ce l'ha fatta (AI non raggiungibile, accesso scaduto…): lo diciamo e lasciamo riprovare o scrivere
