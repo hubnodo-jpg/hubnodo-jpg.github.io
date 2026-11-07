@@ -80,13 +80,6 @@
   let sorgente = null, origine = "", base = null;
   // l'app NODO (dentro la cornice Google) chiede lo stato delle notifiche; rispondiamo solo a lei
   const rispondi = (m) => { try { if (sorgente) sorgente.postMessage(m, origine); } catch (e) {} };
-  // spazio della barretta di iPhone in basso: dentro la cornice Google NODO non lo sa, questa pagina sì (titolare 07/11).
-  // 0 quando iOS lascia già una fascia sotto l'app; altrimenti NODO alza la barra quanto serve.
-  const sonda = document.createElement("div");
-  sonda.style.cssText = "position:fixed;left:0;bottom:0;width:1px;height:env(safe-area-inset-bottom, 0px);visibility:hidden;pointer-events:none";
-  document.body.appendChild(sonda);
-  const spazi = () => rispondi({ nodo: "spazi", basso: window.navigator.standalone ? Math.round(sonda.getBoundingClientRect().height) : 0 });
-  window.addEventListener("resize", spazi);
   const supportato = () => "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
   const dispositivo = () => (/iPhone|iPad/.test(navigator.userAgent) ? "iPhone" : /Android/.test(navigator.userAgent) ? "Android" : "Computer")
     + (navigator.standalone || matchMedia("(display-mode: standalone)").matches ? " · icona" : " · browser");
@@ -123,11 +116,8 @@
   window.addEventListener("message", (e) => {
     if (!/^https:\/\/[a-z0-9-]+\.googleusercontent\.com$/.test(e.origin) || !e.data || typeof e.data !== "object") return;
     sorgente = e.source; origine = e.origin;
-    spazi();
     // colore del bordo inferiore di NODO: lo diamo alla fascia che iOS lascia sotto l'app aperta dall'icona
     if (e.data.nodo === "fondo" && /^rgba?\([\d\s.,%]+\)$/.test(String(e.data.colore))) document.documentElement.style.backgroundColor = e.data.colore;
-    // colore della testata di NODO: alla barra di stato di iPhone (e alle zone che iOS colora da sé)
-    if (e.data.nodo === "fondo" && /^rgba?\([\d\s.,%]+\)$/.test(String(e.data.testa))) { const tc = document.querySelector('meta[name="theme-color"]'); if (tc) tc.setAttribute("content", e.data.testa); }
     // nuova versione di NODO pubblicata: ricarichiamo l'app dentro la pagina, con la schermata d'apertura
     if (e.data.nodo === "ricarica") {
       splash.classList.remove("via");
