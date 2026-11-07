@@ -141,7 +141,8 @@
        detto; nessuna dopo «sì», «no», «va bene». Frasi brevi di NODO che aspettano ancora («Lo salvo.», «Ci penso…», l'inizio
        dell'esito): attendi = salva | piano | esito.
   r7 — frasi d'attesa parlate mentre NODO cerca la risposta.
-  r6 — voce Google (Chirp 3 HD) che arriva da NODO in mp3, sfera che segue il volume della voce.
+  r6 — voce di Lumi che arriva da NODO, sfera che segue il volume della voce. Dal 07/11 una sola voce, Gemini Sulafat
+  (WAV): niente voce del telefono; senza la voce di Lumi la conversazione non parte.
   r5 — Lumi, l'assistente di NODO. NODO gira dentro il riquadro di Google, che non può usare il microfono: questa pagina
   d'ingresso sì. NODO ci dice dove tiene il posto per il pulsante Lumi (in alto, o nella testata di una nuova attività);
   il pulsante vero lo disegniamo noi lì sopra, così il tocco è su questa pagina e il microfono parte subito, anche su iPhone.
@@ -248,24 +249,7 @@
     function aspetto(c, s) { pan.className = "asc" + (c ? " " + c : "") + (det.textContent ? " con-det" : ""); if (s !== undefined) stato.textContent = s; }
     function bottoni() { bScrivi.hidden = scrivendo; bt.classList.toggle("uno", scrivendo); bFine.textContent = scrivendo ? "Chiudi" : "Ho finito"; }
 
-    // voce: la femminile italiana più naturale che il telefono ha (Premium, Avanzata, Natural…); scarta maschili e voci giocattolo
-    var voce = null;
-    function punti(v) {
-      var n = v.name + " " + (v.voiceURI || ""), p = 0;
-      if (/\b(luca|diego|cosimo|giuseppe|benigno|roberto|marco|giorgio|calogero|lorenzo|rinaldo)\b|male\b|maschil/i.test(v.name) && !/female|femmin/i.test(n)) p -= 100;
-      if (/alice|federica|paola|elsa|isabella|emma|bianca|carla|giulia|chiara|silvia|francesca|martina|elena|google italiano|female|femmin/i.test(n)) p += 20;
-      if (/natural|neural|online/i.test(n)) p += 45;
-      if (/premium/i.test(n)) p += 40;
-      if (/enhanced|avanzat|migliorat/i.test(n)) p += 30;
-      if (/google/i.test(n)) p += 15;
-      if (/eddy|\bflo\b|grandma|grandpa|nonna|nonno|reed|rocko|sandy|shelley|espeak|compact/i.test(n)) p -= 60;
-      return p;
-    }
-    function scegliVoce() {
-      try { var l = speechSynthesis.getVoices().filter(function (v) { return /^it/i.test(v.lang); }); l.sort(function (a, b) { return punti(b) - punti(a); }); voce = l[0] || null; } catch (e) {}
-    }
-    if (window.speechSynthesis) { scegliVoce(); try { speechSynthesis.addEventListener("voiceschanged", scegliVoce); } catch (e) {} }
-    // volume della voce → sfera (--liv). Con la voce Google lo misura l'analizzatore; con quella del telefono lo simuliamo.
+    // volume della voce → sfera (--liv): lo misura l'analizzatore
     var poco = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
     var liv = 0, spinto = 0, rafLiv = 0, analisi = null, campioni = null, tFinto = null;
     function livello() {
@@ -306,37 +290,25 @@
           s.onended = avanti; s.start(0); anima();
           clearTimeout(tVoce); tVoce = setTimeout(avanti, buf.duration * 1000 + 2500);
         }, ripiega);
-        clearTimeout(tVoce); tVoce = setTimeout(ripiega, 4000);              // mp3 che non si apre: voce del telefono
+        clearTimeout(tVoce); tVoce = setTimeout(ripiega, 6000);              // audio che non si apre: Lumi resta zitta
       } catch (e) { ripiega(); }
     }
-    function parla(t, poi, audio) {
-      if (audio && actx) { suona(audio, poi, function () { parlaTel(t, poi); }); return; }
-      parlaTel(t, poi);
+    // una sola voce (titolare 07/11): Lumi parla solo con la sua voce (Gemini Sulafat). Se manca (rete, Google) non usa
+    // altre voci: resta zitta e «senza» decide cosa fare; in conversazione si ferma e lo dice.
+    var SENZA_VOCE = "La voce di Lumi non è disponibile adesso: controlla la connessione e riprova tra poco.";
+    function parla(t, poi, audio, senza) {
+      var muta = function () { if (senza) senza(); };
+      if (audio && actx) { suona(audio, poi, muta); return; }
+      muta();
     }
-    // voce del telefono: tutta di fila (spezzata solo se è molto lunga, perché iPhone taglia le frasi lunghe)
-    function parlaTel(t, poi) {
-      try {
-        if (!window.speechSynthesis || !t) { if (poi) poi(); return; }
-        speechSynthesis.cancel();
-        var frasi = String(t).length > 260 ? String(t).match(/[^.!?]+[.!?]*/g) || [t] : [t];
-        var fatto = false, partita = false, avanti = function () { if (!fatto) { fatto = true; finto(false); clearTimeout(tVoce); if (poi) setTimeout(poi, 300); } };
-        frasi.forEach(function (f, i) {
-          var u = new SpeechSynthesisUtterance(String(f).trim()); u.lang = voce ? voce.lang : "it-IT"; if (voce) u.voice = voce; u.rate = 1.02;
-          u.onstart = function () { partita = true; finto(true); };
-          if (i === frasi.length - 1) u.onend = u.onerror = avanti;
-          speechSynthesis.speak(u);
-        });
-        // se la voce non parte (iPhone senza tocco) o la fine della frase non arriva, andiamo avanti lo stesso
-        if (poi) {
-          setTimeout(function () { if (!partita && !fatto) { try { speechSynthesis.cancel(); } catch (e) {} avanti(); } }, 2500);
-          clearTimeout(tVoce); tVoce = setTimeout(avanti, 4000 + String(t).length * 90);
-        }
-      } catch (e) { if (poi) poi(); }
-    }
+    // senza voce niente conversazione, neanche scritta: resta solo «Chiudi»
+    function senzaVoce() { fineConv(); zitta(); scrivendo = false; scr.hidden = true; aspetto("fermo", SENZA_VOCE); bScrivi.hidden = true; bt.classList.add("uno"); bFine.textContent = "Chiudi"; }
+    var haVoce = function () { var v = lumi.segue ? voci.segue : voci.saluto; return !!(v && v.audio && actx); };
+    // la voce di una frase fissa con lo stesso testo (per i messaggi che arrivano senza voce)
+    function vocePer(t) { for (var k in voci) if (voci[k].testo === t) return voci[k].audio; return ""; }
     function zitta() {
       giro++; clearTimeout(tVoce); finto(false); analisi = null; fermaAttesa(); riemp.suona = false; riemp.poi = null;
       if (sorgAudio) { try { sorgAudio.onended = null; sorgAudio.stop(); } catch (e) {} sorgAudio = null; }
-      try { if (window.speechSynthesis) speechSynthesis.cancel(); } catch (e) {}
     }
 
     // mentre NODO cerca, Lumi parla come una persona, ma solo se la risposta tarda: una frase legata a quello che si è detto
@@ -471,10 +443,10 @@
       aNodo(t);
     }
     // Lumi dice una cosa (e se c'è il dettaglio lo scrive), poi va avanti
-    function dice(frase, dettaglio, poi, audio) {
+    function dice(frase, dettaglio, poi, audio, senza) {
       dom.textContent = frase; tu.textContent = ""; det.textContent = dettaglio || "";
       aspetto("parla", "");
-      parla(frase, poi, audio);
+      parla(frase, poi, audio, senza || senzaVoce);
     }
     // iPhone spesso non chiude l'ascolto quando glielo si chiede: dopo 0,7 s chiudiamo noi con quello che abbiamo sentito
     function ferma() {
@@ -504,27 +476,26 @@
       scr.hidden = false; bottoni(); aspetto("fermo", msg || "");
       setTimeout(function () { try { txt.focus(); } catch (e) {} }, 50);
     }
-    function sblocca() {
-      sbloccaAudio();
-      if (!sbloccata && window.speechSynthesis) { try { var u = new SpeechSynthesisUtterance(" "); u.volume = 0; speechSynthesis.speak(u); sbloccata = true; } catch (e) {} }
-    }
+    function sblocca() { sbloccaAudio(); }
 
     // il tocco sul pulsante Lumi: apre la pagina, accende il microfono e saluta
     btn.addEventListener("click", function () {
       sblocca();
       chiesto = false; scrivendo = false; scr.hidden = true; txt.value = ""; bottoni(); usate = {}; ultima = "";
       tu.textContent = ""; det.textContent = ""; pan.hidden = false; btn.hidden = true;
-      manda({ nodo: "lumi-via" });
       var v = lumi.segue ? voci.segue : voci.saluto;
-      var saluto = v ? v.testo : lumi.segue ? "Dimmi cosa aggiungo o cambio." : "Ciao" + (lumi.nome ? " " + lumi.nome : "") + ", dimmi pure.";
-      if (accendi(true)) dice(saluto, "", inAscolto, v && v.audio);
-      else dom.textContent = saluto;
+      // senza la sua voce Lumi non parte (titolare 07/11): lo diciamo e chiediamo di nuovo le voci a NODO
+      if (!haVoce()) { dom.textContent = ""; senzaVoce(); manda({ nodo: "lumi-voci?" }); return; }
+      manda({ nodo: "lumi-via" });
+      if (accendi(true)) dice(v.testo, "", inAscolto, v.audio);
+      else dom.textContent = v.testo;
     });
     // il cerchio: se è fermo riaccende il microfono, se sta ascoltando vuol dire «ho finito»
     mic.addEventListener("click", function () {
       sblocca();
       if (rec && muto) return;                              // sta parlando Lumi o NODO sta lavorando: un attimo
       if (rec) { ferma(); return; }
+      if (!haVoce()) { senzaVoce(); manda({ nodo: "lumi-voci?" }); return; }
       scrivendo = false; scr.hidden = true; bottoni();
       accendi(false);
     });
@@ -563,13 +534,13 @@
         lumi.nome = String(d.nome || "").slice(0, 30); lumi.segue = !!d.segue;
         posiziona(); return;
       }
-      // la voce di Lumi per le frasi fisse (saluto, «Fatto…», errore): mp3 già pronti
+      // la voce di Lumi per le frasi fisse (saluto, «Fatto…», errore, attese): già pronte
       if (d.nodo === "lumi-voci") {
         var vv = d.voci && typeof d.voci === "object" ? d.voci : {};
         voci = {};
         Object.keys(vv).filter(function (k) { return /^[a-z][a-z0-9_]{0,15}$/.test(k); }).forEach(function (k) {
           var x = vv[k];
-          if (x && typeof x.testo === "string" && typeof x.audio === "string" && x.audio.length < 300000) voci[k] = { testo: x.testo.slice(0, 120), audio: x.audio };
+          if (x && typeof x.testo === "string" && typeof x.audio === "string" && x.audio.length < 3000000) voci[k] = { testo: x.testo.slice(0, 120), audio: x.audio };
         });
         return;
       }
@@ -578,7 +549,7 @@
         if (pan.hidden) return;
         clearTimeout(tAttesa);
         var testo = String(d.testo || "").slice(0, 600), dt = String(d.dettaglio || "").slice(0, 4000);
-        var au = typeof d.voce === "string" && d.voce.length < 600000 ? d.voce : "";
+        var au = typeof d.voce === "string" && d.voce.length < 8000000 ? d.voce : "";
         if (d.attendi) {
           if (rec) muto = true;
           clearTimeout(tAttesa);
@@ -587,7 +558,7 @@
           dopoAttesa(function () { aspettaAncora(testo, au, tipo); });
           return;
         }
-        if (d.fine) { fineConv(); dopoAttesa(function () { dice(testo, "", function () { chiudi(); }, au || (voci.fatto && voci.fatto.testo === testo ? voci.fatto.audio : "")); }); return; }
+        if (d.fine) { fineConv(); dopoAttesa(function () { dice(testo, "", function () { chiudi(); }, au || vocePer(testo)); }); return; }
         if (rec) muto = true;
         dopoAttesa(function () { dice(testo, dt, inAscolto, au); });
         return;
@@ -607,9 +578,9 @@
       // NODO dice una frase (vecchio «Parla e compila»): se la pagina è aperta la chiude dopo averla detta
       if (d.nodo === "parla") {
         var t = String(d.testo || "").slice(0, 400);
-        if (pan.hidden) { parla(t); return; }
+        if (pan.hidden) { parla(t, null, vocePer(t)); return; }
         fineConv(); chiesto = false;
-        dice(t, "", function () { chiudi(); });
+        dice(t, "", function () { chiudi(); }, vocePer(t), function () { aspetto("fermo", ""); });
         return;
       }
       if (d.nodo !== "ascolta") return;
@@ -617,9 +588,12 @@
       var domanda = String(d.domanda || "").slice(0, 400);
       clearTimeout(tAttesa);
       pan.hidden = false; btn.hidden = true;
-      if (conv && rec) { muto = true; dice(domanda || "Dimmi.", "", inAscolto); return; }
-      if (scrivendo) { dice(domanda, "", function () { aspetto("fermo", ""); }); return; }
-      dice(domanda || "Dimmi.", "", function () { if (iOS) aspetto("fermo", "Tocca il cerchio e rispondi"); else accendi(false); });
+      // la domanda del modulo: con la voce di Lumi se c'è, altrimenti solo scritta (mai un'altra voce)
+      var dopo;
+      if (conv && rec) { muto = true; dice(domanda || "Dimmi.", "", inAscolto, vocePer(domanda), inAscolto); return; }
+      if (scrivendo) { dopo = function () { aspetto("fermo", ""); }; dice(domanda, "", dopo, vocePer(domanda), dopo); return; }
+      dopo = function () { if (iOS) aspetto("fermo", "Tocca il cerchio e rispondi"); else accendi(false); };
+      dice(domanda || "Dimmi.", "", dopo, vocePer(domanda), dopo);
     });
   })();
 </script>
