@@ -41,7 +41,8 @@
   .invito .bt { display: grid; grid-template-columns: 1fr 1fr; gap: 8px }
   .invito button { min-height: 46px; border-radius: 10px; border: 1px solid #c9cfd0; background: #fff; color: #1d282c; font: 600 16px system-ui, -apple-system, sans-serif; cursor: pointer }
   .invito button.si { background: var(--night); border-color: var(--night); color: var(--paper) }
-  .test { position: fixed; z-index: 4; top: calc(env(safe-area-inset-top, 0px) + 2px); left: 50%; transform: translateX(-50%); pointer-events: none;
+  /* (v61) non fissa: un elemento fisso in cima fa sfocare a iPhone la barra di stato (nel NODO vero non c’è) */
+  .test { position: absolute; z-index: 4; top: calc(env(safe-area-inset-top, 0px) + 2px); left: 50%; transform: translateX(-50%); pointer-events: none;
     background: #e87a20; color: #fff; font: 700 11px/1 system-ui, -apple-system, sans-serif; letter-spacing: .12em; padding: 3px 8px; border-radius: 0 0 6px 6px }
 </style>
 </head>
