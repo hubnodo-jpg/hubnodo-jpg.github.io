@@ -197,10 +197,23 @@
   @keyframes orb-onda { 0% { transform: scale(.95); opacity: .55 } 100% { transform: scale(1.75); opacity: 0 } }
   @keyframes orb-pensa { 0%, 100% { filter: brightness(.9) } 50% { filter: brightness(1.08) } }
   @keyframes orb-alone { 0%, 100% { opacity: .3; transform: scale(.86) } 50% { opacity: .9; transform: scale(1.14) } }
-  .asc-dom { margin: 0; font-size: 21px; line-height: 1.32; font-weight: 600; max-width: 32ch; text-wrap: pretty }
-  .asc-dom:empty, .asc-tu:empty, .asc-det:empty { display: none }
-  .asc-tu { margin: 0; font-size: 17px; color: #c9c6bd; max-width: 34ch }
-  .asc-tu::before { content: "«" } .asc-tu::after { content: "»" }
+  /* (titolare 09/11) ultimo scambio a bolle, come nel benvenuto: TU a destra, LUMI a sinistra; il resto a richiesta */
+  .asc-chat { width: 100%; display: grid; gap: 10px; align-content: end; text-align: left }
+  .asc-chat[hidden], .asc-chat .bub.vecchia, .asc-storia[hidden] { display: none }
+  .asc-chat.tutto .bub.vecchia { display: block; opacity: .72 }
+  .asc-chat .bub { max-width: 86%; box-sizing: border-box; padding: 11px 14px; border-radius: 16px; font-size: 17px; line-height: 1.42; overflow-wrap: anywhere; animation: bub-entra .28s cubic-bezier(.2, .8, .2, 1) both }
+  .asc-chat .bub.me { justify-self: end; background: #314248; border-bottom-right-radius: 5px; color: #ecebe6 }
+  .asc-chat .bub.me.vivo .bub-txt { color: #c9c6bd }
+  .asc-chat .bub.lu { justify-self: start; background: rgba(201, 173, 139, .14); border: 1px solid rgba(201, 173, 139, .3); border-bottom-left-radius: 5px; color: #fafaf7 }
+  .asc-chat .bub-chi { display: block; margin-bottom: 6px; font: 600 11px/1 ui-monospace, "SF Mono", Menlo, monospace; letter-spacing: .06em; color: #8c9592 }
+  .asc-chat .bub-txt { display: block }
+  .asc-chat .det { display: block; margin-top: 10px; padding-top: 10px; border-top: 1px solid rgba(250, 250, 247, .12); white-space: pre-line; font-size: 15px; line-height: 1.5; color: #ecebe6 }
+  .asc-storia { justify-self: center; min-height: 44px; padding: 0 16px; border: 0; border-radius: 22px; background: rgba(250, 250, 247, .08); color: #c9c6bd; font: 600 14px system-ui, -apple-system, sans-serif; cursor: pointer }
+  .asc-storia:focus-visible { outline: 2px solid #c9ad8b; outline-offset: 2px }
+  @keyframes bub-entra { from { opacity: 0; transform: translateY(8px) } }
+  /* con la conversazione avviata: sfera più piccola in alto, le bolle scorrono sotto */
+  .asc.con-det .asc-centro { grid-template-rows: auto minmax(0, 1fr); align-content: stretch; overflow: hidden }
+  .asc.con-det .asc-chat { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-bottom: 2px; align-content: start }
   .asc-det { margin: 0; width: 100%; box-sizing: border-box; text-align: left; white-space: pre-line; font-size: 15px; line-height: 1.5; color: #ecebe6;
     background: rgba(250, 250, 247, .06); border: 1px solid rgba(250, 250, 247, .12); border-radius: 14px; padding: 12px 14px }
   .asc-stato { margin: 12px auto; color: #c9c6bd; font-size: 15px; min-height: 21px; text-align: center; max-width: 560px }
@@ -244,7 +257,7 @@
   @keyframes fb-velo { from { opacity: 0 } }
   @media (prefers-reduced-motion: reduce) {
     .fb, .fb-card { animation: none }
-    .asc, .lumi-btn i::before, .asc-orb i { animation: none !important }
+    .asc, .lumi-btn i::before, .asc-orb i, .asc-chat .bub { animation: none !important }
     .asc.sente .asc-orb .onda, .asc.parla .asc-orb .onda { opacity: .45 }
     .asc.pensa .asc-orb .alone { opacity: .7 }
   }
@@ -255,9 +268,7 @@
     <button type="button" class="asc-x" id="ascNo" aria-label="Chiudi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
   <div class="asc-centro">
     <button type="button" class="asc-orb" id="ascMic" aria-label="Parla"><i class="alone"></i><i class="onda"></i><i class="onda b"></i><i class="nucleo"></i><i class="luce"></i></button>
-    <p class="asc-dom" id="ascDom" aria-live="polite"></p>
-    <p class="asc-tu" id="ascTu"></p>
-    <p class="asc-det" id="ascDet"></p>
+    <div class="asc-chat" id="ascChat" role="log" aria-live="polite" aria-relevant="additions" aria-label="Conversazione con Lumi" hidden><button type="button" class="asc-storia" id="ascStoria" hidden>Vedi tutta la conversazione</button></div>
   </div>
   <p class="asc-stato" id="ascStato" role="status" aria-live="polite"></p>
   <div>
@@ -286,8 +297,56 @@
   (function () {
     var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     var $ = function (id) { return document.getElementById(id); };
-    var pan = $("asc"), mic = $("ascMic"), stato = $("ascStato"), dom = $("ascDom"), tu = $("ascTu"), det = $("ascDet"), btn = $("lumiBtn"), app = $("app");
+    var pan = $("asc"), mic = $("ascMic"), stato = $("ascStato"), btn = $("lumiBtn"), app = $("app");
     var scr = $("ascScr"), txt = $("ascTxt"), bScrivi = $("ascScrivi"), bFine = $("ascFine"), bt = $("ascBt");
+
+    // (titolare 09/11) la conversazione a bolle: dom = quello che dice Lumi, tu = quello che dici (o scrivi) tu, det = il dettaglio
+    // scritto sotto la frase di Lumi. Si vedono le ultime due bolle; il resto con «Vedi tutta la conversazione» (e sempre scrivendo).
+    var chat = $("ascChat"), storia = $("ascStoria");
+    var bolle = function () { return chat.querySelectorAll(".bub"); };
+    var ultimaB = function (cls) { var b = bolle(), u = b[b.length - 1]; return u && (!cls || u.classList.contains(cls)) ? u : null; };
+    function bolla(chi, testo) {
+      var b = document.createElement("div"), c = document.createElement("span"), x = document.createElement("span");
+      b.className = "bub " + chi; c.className = "bub-chi"; c.textContent = chi === "me" ? "TU" : "LUMI";
+      x.className = "bub-txt"; x.textContent = testo; b.appendChild(c); b.appendChild(x); chat.appendChild(b);
+      return b;
+    }
+    function riordina() {
+      var b = bolle(), tutto = chat.classList.contains("tutto");
+      for (var i = 0; i < b.length; i++) b[i].classList.toggle("vecchia", i < b.length - 2);
+      chat.hidden = !b.length; storia.hidden = b.length <= 2;
+      storia.textContent = tutto ? "Mostra solo l'ultimo scambio" : "Vedi tutta la conversazione";
+      requestAnimationFrame(function () { chat.scrollTop = chat.scrollHeight; });
+    }
+    function fineVivo() { var u = ultimaB("vivo"); if (u) u.classList.remove("vivo"); }
+    function chatVuota() { var b = bolle(); for (var i = 0; i < b.length; i++) b[i].remove(); chat.classList.remove("tutto"); riordina(); }
+    var dom = {
+      set textContent(v) {
+        v = String(v || "").trim(); if (!v) return;
+        var u = ultimaB("lu"); if (u && u.querySelector(".bub-txt").textContent === v) return;
+        fineVivo(); bolla("lu", v); riordina();
+      },
+      get textContent() { var u = ultimaB("lu"); return u ? u.querySelector(".bub-txt").textContent : ""; }
+    };
+    var tu = {
+      set textContent(v) {
+        v = String(v || "").trim();
+        if (!v) { fineVivo(); return; }
+        var u = ultimaB("vivo");
+        if (u) u.querySelector(".bub-txt").textContent = v; else bolla("me", v).classList.add("vivo");
+        riordina();
+      },
+      get textContent() { var u = ultimaB("vivo"); return u ? u.querySelector(".bub-txt").textContent : ""; }
+    };
+    var det = {
+      set textContent(v) {
+        v = String(v || "").trim(); var u = ultimaB("lu"); if (!v || !u) return;
+        var d = u.querySelector(".det"); if (!d) { d = document.createElement("span"); d.className = "det"; u.appendChild(d); }
+        d.textContent = v; riordina();
+      },
+      get textContent() { return ""; }
+    };
+    storia.addEventListener("click", function () { chat.classList.toggle("tutto"); riordina(); });
     var sorg = null, orig = "", richiesta = 0, chiesto = false, rec = null, sentito = "", errore = "", tSil = null, tMax = null, tNiente = null, tPronto = null, sbloccata = false;
     // Conversazione: dopo il tocco il microfono resta aperto per tutta la conversazione. Mentre NODO lavora e mentre
     // Lumi parla è «muto» (quello che sente non conta); dopo la risposta torna ad ascoltare da solo, senza tocchi.
@@ -331,7 +390,7 @@
       setTimeout(fbChiudi, 1400);
     });
     function aspetto(c, s) {
-      pan.className = "asc" + (c ? " " + c : "") + (det.textContent ? " con-det" : ""); if (s !== undefined) stato.textContent = s;
+      pan.className = "asc" + (c ? " " + c : "") + (bolle().length > 1 || chat.querySelector(".det") ? " con-det" : ""); if (s !== undefined) stato.textContent = s;
       if (c === "fermo") lasciaSpegnere(60000); else tieniAcceso();
     }
     // (titolare 07/11) «quando parlo con Lumi il telefono si blocca»: finché Lumi lavora lo schermo resta acceso (Wake Lock, come i
@@ -658,7 +717,7 @@
     }
     // scrivere invece di parlare
     function scrivi(msg) {
-      fineConv(); zitta(); scrivendo = true;
+      fineConv(); zitta(); scrivendo = true; chat.classList.add("tutto"); riordina();
       scr.hidden = false; bottoni(); aspetto("fermo", msg || "");
       setTimeout(function () { try { txt.focus(); } catch (e) {} }, 50);
     }
@@ -669,7 +728,7 @@
       sblocca();
       diag = []; diagMandata = 0; t0d = Date.now(); dg("T"); dg("P43"); dg(sessioneQ); detteN = 0;
       chiesto = false; scrivendo = false; scr.hidden = true; txt.value = ""; bottoni(); usate = {}; ultima = "";
-      tu.textContent = ""; det.textContent = ""; pan.hidden = false; btn.hidden = true;
+      chatVuota(); pan.hidden = false; btn.hidden = true;
       var v = lumi.segue ? voci.segue : voci.saluto;
       // senza la sua voce Lumi non parte (titolare 07/11): lo diciamo e chiediamo di nuovo le voci a NODO
       if (!haVoce()) { dom.textContent = ""; senzaVoce(); manda({ nodo: "lumi-voci?" }); return; }
